@@ -1457,7 +1457,9 @@ def execute_study(client, ops, budget, args):
                 failed += int(bool(failed_now) or applied_now == 0)
         except Exception as error:
             failed += 1
-            stats.last_error = f'{type(error).__name__}: {error}'
+            import traceback
+            stats.last_error = f'{type(error).__name__}: {error} @ ' + ' | '.join(
+                line.strip() for line in traceback.format_exc().splitlines()[-6:-1])
         sent += 1
         index += 1
         write_progress(progress_path, status='running', sent=sent, ops=total,
