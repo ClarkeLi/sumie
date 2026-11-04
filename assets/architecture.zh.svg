@@ -1,0 +1,72 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 820" width="1400" height="820" font-family="-apple-system,'PingFang SC','Noto Sans CJK SC','Microsoft YaHei','Segoe UI',Helvetica,Arial,sans-serif">
+<defs>
+<marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#5b3a8c"/></marker>
+<linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#232b5a"/><stop offset="1" stop-color="#5b3a8c"/></linearGradient>
+<style>
+.t{font-size:17px;font-weight:700;fill:#232b5a}.s{font-size:13px;fill:#4a4f6a}.h{font-size:19px;font-weight:700;fill:#fff}
+.b{fill:#fff;stroke:#c9c3e6;stroke-width:1.6}.k{fill:#fff3e8;stroke:#f0a36a;stroke-width:1.6}.l{font-size:12.5px;font-weight:600;fill:#5b3a8c}
+.p{stroke:#5b3a8c;stroke-width:2.2;fill:none}
+</style></defs>
+<rect width="1400" height="820" rx="22" fill="#f6f3fc"/>
+<text x="700" y="40" text-anchor="middle" font-size="24" font-weight="800" fill="#232b5a">Sumie · 系统架构</text>
+
+<rect class="b" x="40" y="70" width="420" height="92" rx="14"/>
+<text class="t" x="60" y="102">浏览器 · Studio 工作台 (ui.html)</text>
+<text class="s" x="60" y="126">粘贴图片 · 选风格 · 预览 · 绘制 · 五种语言</text>
+<text class="s" x="60" y="146">由插件在 http://127.0.0.1:8765/ 提供</text>
+<rect class="b" x="500" y="70" width="300" height="92" rx="14"/>
+<text class="t" x="520" y="102">命令行 / SDK</text>
+<text class="s" x="520" y="126">dg_artist.py · dg_bridge.py</text>
+<text class="s" x="520" y="146">脚本与自动化</text>
+
+<rect x="40" y="214" width="660" height="576" rx="18" fill="#efeaf9" stroke="#b9aee0" stroke-width="1.6"/>
+<text class="t" x="62" y="244" style="font-size:19px">Python 绘制服务 · 127.0.0.1:8770</text>
+<rect class="b" x="62" y="260" width="616" height="58" rx="10"/>
+<text class="t" x="80" y="284">studio_server.py</text><text class="s" x="80" y="304">单 worker 作业队列 · 进度 · 预览 · 指标 · 取消</text>
+<rect class="b" x="62" y="334" width="616" height="62" rx="10"/>
+<text class="t" x="80" y="358">① 感知</text><text class="s" x="80" y="379">Anime2Sketch 线稿 · anime-seg 主体蒙版 · 调色板 · 画框切口柔化</text>
+<rect class="b" x="62" y="412" width="616" height="62" rx="10"/>
+<text class="t" x="80" y="436">② 规划 · anime_human</text><text class="s" x="80" y="457">线稿 → 平涂 → 阴影 → 细节 · 时间预算 (pacing.py)</text>
+<rect class="k" x="62" y="490" width="616" height="84" rx="10"/>
+<text class="t" x="80" y="514">③ 人体模型</text>
+<text class="s" x="80" y="535">motor.py：Quick, Draw! 节奏与压感管线 · bucket.py：离线漏色模型</text>
+<text class="s" x="80" y="555">brush_fill.py：分层画笔涂色 · layers.py：虚拟图层角色</text>
+<rect class="b" x="62" y="590" width="616" height="62" rx="10"/>
+<text class="t" x="80" y="614">④ 执行器</text><text class="s" x="80" y="635">逐笔执行，带节奏与压感 · 按回合截止时间压缩速度</text>
+<rect class="b" x="62" y="668" width="616" height="108" rx="10" style="fill:#fafafe"/>
+<text class="t" x="80" y="692">数据流</text>
+<text class="s" x="80" y="714">图片 + 参数 → plan.json（操作：line / disc / fill，归一化，y 向上）</text>
+<text class="s" x="80" y="734">计划 → 预览 PNG + 数值指标（覆盖率、颜色误差、预计用时）</text>
+<text class="s" x="80" y="754">计划 → 笔画 → HTTP → 插件 → 游戏画布</text>
+<path class="p" d="M370,318 V334" marker-end="url(#a)"/><path class="p" d="M370,396 V412" marker-end="url(#a)"/><path class="p" d="M370,474 V490" marker-end="url(#a)"/><path class="p" d="M370,574 V590" marker-end="url(#a)"/>
+
+<rect x="740" y="214" width="620" height="576" rx="18" fill="#e9eefb" stroke="#a9b8e4" stroke-width="1.6"/>
+<text class="t" x="762" y="244" style="font-size:19px">Draw &amp; Guess（Unity，Mono）+ BepInEx 6</text>
+<rect class="k" x="762" y="260" width="576" height="190" rx="12"/>
+<text class="t" x="780" y="284">插件 · DrawGuessBridge.dll</text>
+<rect class="b" x="780" y="296" width="540" height="42" rx="8"/><text class="s" x="796" y="322">BridgeServer · HTTP + WebSocket · 127.0.0.1:8765 · 可选令牌</text>
+<rect class="b" x="780" y="350" width="262" height="42" rx="8"/><text class="s" x="796" y="376">MainThreadDispatcher</text>
+<rect class="b" x="1058" y="350" width="262" height="42" rx="8"/><text class="s" x="1074" y="376">StudioProcess（启动 :8770）</text>
+<rect class="b" x="780" y="402" width="262" height="36" rx="8"/><text class="s" x="796" y="425">GameApi · LineInformation</text>
+<rect class="b" x="1058" y="402" width="262" height="36" rx="8"/><text class="s" x="1074" y="425">虚拟手绘笔 · 9 个虚拟图层</text>
+<rect class="b" x="762" y="470" width="576" height="68" rx="12"/>
+<text class="t" x="780" y="496">游戏模块</text><text class="s" x="780" y="518">DrawModule · SketchbookDrawModule · IngameDrawModule · DrawHelpers.SpawnDrawElement</text>
+<rect class="b" x="762" y="554" width="576" height="68" rx="12"/>
+<text class="t" x="780" y="580">游戏画布</text><text class="s" x="780" y="602">排序与撤销栈 · 压感 (LinePressure) · 联机同步</text>
+<rect class="b" x="762" y="638" width="576" height="138" rx="12" style="fill:#fafafe"/>
+<text class="t" x="780" y="664">为什么安全又快</text>
+<text class="s" x="780" y="686">• 不模拟鼠标，不需要屏幕录制或辅助功能权限</text>
+<text class="s" x="780" y="706">• 所有 Unity 访问都经过主线程调度器</text>
+<text class="s" x="780" y="726">• 笔画进入游戏自己的撤销 / 同步流程</text>
+<text class="s" x="780" y="746">• 两个服务都只绑定 127.0.0.1</text>
+<path class="p" d="M1050,338 V350" marker-end="url(#a)"/><path class="p" d="M911,392 V402" marker-end="url(#a)"/><path class="p" d="M911,438 V470" marker-end="url(#a)"/><path class="p" d="M1189,438 V470" marker-end="url(#a)"/><path class="p" d="M1050,538 V554" marker-end="url(#a)"/>
+
+<path class="p" d="M250,162 V260" marker-end="url(#a)"/>
+<text class="l" x="262" y="200">:8770 作业 · 预览 (CORS)</text>
+<path class="p" d="M440,162 V190 H1300 V260" marker-end="url(#a)" style="stroke-dasharray:7 5"/>
+<text class="l" x="560" y="182">:8765 页面 · 实时状态 · 画布 · 撤销 / 提交</text>
+<path class="p" d="M678,621 H740 H762" marker-end="url(#a)"/>
+<text class="l" x="684" y="610">笔画</text>
+<path class="p" d="M762,330 H730 V285 H678" marker-end="url(#a)" style="stroke-dasharray:7 5"/>
+<text class="l" x="690" y="278" style="font-size:11.5px">回合计时</text>
+</svg>

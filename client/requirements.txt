@@ -1,0 +1,4 @@
+# Core renderer and studio service. Enough for every style except the AI line art.
+numpy>=1.23
+opencv-python>=4.6
+Pillow>=9.0

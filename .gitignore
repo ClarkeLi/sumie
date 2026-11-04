@@ -1,0 +1,23 @@
+# virtualenv, caches, generated output
+.venv/
+.cache/
+__pycache__/
+*.pyc
+
+# build output
+dist/
+src/DrawGuessBridge/obj/
+src/DrawGuessBridge/bin/
+
+# downloaded model weights (tools/setup.py --ai fetches them)
+models/
+
+# local canvas exports (user data)
+canvas-backups/
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# release archives are uploaded to GitHub Releases, not committed
+releases/

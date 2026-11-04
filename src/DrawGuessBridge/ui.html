@@ -1,0 +1,2474 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Draw &amp; Guess Studio</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0d1015;
+    --panel: #151a22;
+    --panel-2: #1b222c;
+    --line: #28313e;
+    --line-2: #384659;
+    --text: #e7ecf3;
+    --muted: #8b97a8;
+    --dim: #5f6b7c;
+    --accent: #6ea8fe;
+    --accent-2: #8ad7a8;
+    --warn: #f0b46b;
+    --danger: #ef7a7a;
+    --radius: 14px;
+    --shadow: 0 18px 50px rgba(0, 0, 0, .35);
+    font: 14px/1.5 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC",
+          "Microsoft YaHei", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    margin: 0;
+    color: var(--text);
+    background:
+      radial-gradient(1100px 500px at 15% -10%, rgba(110, 168, 254, .10), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(138, 215, 168, .06), transparent 55%),
+      var(--bg);
+    overflow: hidden;
+  }
+  button, input, select, textarea { font: inherit; color: inherit; }
+  button { cursor: pointer; }
+  a { color: var(--accent); text-decoration: none; }
+  code, pre, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  header {
+    height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    padding: 0 20px;
+    border-bottom: 1px solid var(--line);
+    background: rgba(13, 16, 21, .82);
+    backdrop-filter: blur(12px);
+    position: relative;
+    z-index: 5;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+  .brand strong { font-size: 17px; letter-spacing: .2px; }
+  .brand span { color: var(--muted); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; }
+  .statusbar { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-wrap: wrap; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    height: 30px; padding: 0 11px;
+    border: 1px solid var(--line); border-radius: 999px;
+    background: var(--panel); color: var(--muted);
+    font-size: 12px; white-space: nowrap;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); box-shadow: 0 0 0 3px rgba(255,255,255,.03); }
+  .pill.ok .dot { background: var(--accent-2); }
+  .pill.warn .dot { background: var(--warn); }
+  .pill.bad .dot { background: var(--danger); }
+  .pill.ok { color: #cfe9d9; border-color: #2f5241; }
+  .pill.bad { color: #f3c7c7; border-color: #5a3333; }
+  .icon-btn {
+    width: 32px; height: 32px; display: grid; place-items: center;
+    border: 1px solid var(--line); border-radius: 9px; background: var(--panel);
+    color: var(--muted);
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--line-2); }
+
+  .banner {
+    margin: 10px 20px 0;
+    padding: 11px 14px;
+    border: 1px solid #5a4527;
+    background: linear-gradient(90deg, rgba(240,180,107,.13), rgba(240,180,107,.04));
+    color: #f1d5ac;
+    border-radius: 12px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .banner .grow { flex: 1; min-width: 240px; }
+  .banner button { border-color: #6b5330; background: #2a2115; color: #f4d7a9; }
+
+  main {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 372px minmax(420px, 1fr) 340px;
+    gap: 14px;
+    padding: 14px 16px 16px;
+    overflow: hidden;
+  }
+  aside, .center { min-height: 0; overflow: auto; padding-right: 2px; scrollbar-width: thin; }
+  aside::-webkit-scrollbar, .center::-webkit-scrollbar { width: 8px; }
+  aside::-webkit-scrollbar-thumb, .center::-webkit-scrollbar-thumb { background: #26303c; border-radius: 8px; }
+  .center { display: flex; flex-direction: column; gap: 12px; }
+  /* Never let the canvas shrink under the progress card; the column scrolls instead. */
+  .center > * { flex: none; }
+
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 70%), var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+  .card h2 {
+    margin: 0 0 10px;
+    font-size: 12px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2 .step {
+    width: 20px; height: 20px; display: inline-grid; place-items: center;
+    border-radius: 6px; background: #223044; color: var(--accent);
+    font-size: 11px; letter-spacing: 0;
+  }
+  .card h2 .grow { flex: 1; }
+  .hint { color: var(--muted); font-size: 12px; line-height: 1.55; }
+  .hint.warn { color: var(--warn); }
+  .hint.bad { color: var(--danger); }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .grow { flex: 1; min-width: 0; }
+
+  button, .btn {
+    border: 1px solid var(--line-2);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 13px;
+    transition: border-color .15s, background .15s, transform .06s;
+  }
+  button:hover, .btn:hover { border-color: #4a5c73; background: #202936; }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .42; cursor: not-allowed; transform: none; }
+  button.primary { background: linear-gradient(180deg, #3f7fe4, #2f63bd); border-color: #4b8bf0; color: #fff; }
+  button.primary:hover { background: linear-gradient(180deg, #4a8bef, #376fd0); }
+  button.accent { background: linear-gradient(180deg, #31825d, #266c4c); border-color: #3d9a70; color: #eafff3; }
+  button.accent:hover { background: linear-gradient(180deg, #39946a, #2c7a57); }
+  button.danger { border-color: #6a3a3a; color: #ffb9b9; background: #2a1a1c; }
+  button.ghost { background: transparent; border-color: var(--line); color: var(--muted); }
+  button.small { padding: 6px 9px; font-size: 12px; border-radius: 8px; }
+
+  .dropzone {
+    position: relative;
+    border: 1.5px dashed #334152;
+    border-radius: 12px;
+    min-height: 142px;
+    display: grid; place-items: center;
+    text-align: center;
+    padding: 14px;
+    background: repeating-linear-gradient(45deg, rgba(255,255,255,.012) 0 8px, transparent 8px 16px);
+    transition: border-color .15s, background .15s;
+    overflow: hidden;
+  }
+  .dropzone.over { border-color: var(--accent); background: rgba(110,168,254,.07); }
+  .dropzone img { max-width: 100%; max-height: 190px; border-radius: 8px; display: block; box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+  .dropzone .placeholder { color: var(--dim); font-size: 12px; line-height: 1.7; }
+  .dropzone .placeholder strong { display: block; color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+  .dropzone .meta {
+    position: absolute; left: 8px; right: 8px; bottom: 8px;
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 5px 8px; border-radius: 7px;
+    background: rgba(8, 10, 14, .76); color: #cfd8e5;
+    font-size: 11px; backdrop-filter: blur(4px);
+  }
+  .dropzone .clear {
+    position: absolute; top: 7px; right: 7px;
+    width: 26px; height: 26px; padding: 0; border-radius: 8px;
+    background: rgba(8,10,14,.72); color: var(--muted); border-color: #38485c;
+  }
+
+  label.field { display: block; margin-bottom: 10px; }
+  label.field > span { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 5px; color: var(--muted); font-size: 12px; }
+  label.field > span em { font-style: normal; color: var(--dim); }
+  input[type="number"], input[type="text"], select, textarea {
+    width: 100%;
+    background: #0f141b;
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 8px 10px;
+    outline: none;
+    min-height: 36px;
+  }
+  input:focus, select:focus, textarea:focus { border-color: #4d79b8; box-shadow: 0 0 0 3px rgba(110,168,254,.10); }
+  input[type="range"] { width: 100%; accent-color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; }
+  .check input { width: 15px; height: 15px; accent-color: var(--accent); }
+
+  .segmented {
+    display: flex; padding: 3px; gap: 3px;
+    background: #0f141b; border: 1px solid var(--line); border-radius: 10px;
+  }
+  .segmented button {
+    flex: 1; border: 0; background: transparent; color: var(--muted);
+    padding: 7px 8px; border-radius: 7px; font-size: 12px;
+  }
+  .segmented button.active { background: #243246; color: #dbe7f7; box-shadow: inset 0 0 0 1px #344960; }
+  .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  .presets button { padding: 5px 9px; font-size: 11px; border-radius: 999px; color: var(--muted); }
+
+  details.advanced { margin-top: 4px; border-top: 1px dashed var(--line); padding-top: 10px; }
+  details.advanced summary { cursor: pointer; color: var(--muted); font-size: 12px; user-select: none; }
+  details.advanced[open] summary { margin-bottom: 10px; }
+
+  .tabs { display: flex; gap: 6px; align-items: center; }
+  .tabs button { padding: 6px 11px; font-size: 12px; border-radius: 999px; background: transparent; color: var(--muted); border-color: var(--line); }
+  .tabs button.active { background: #223049; color: #dbe7f7; border-color: #3b557a; }
+  .tabs .grow { flex: 1; }
+  .tabs .badge { font-size: 11px; color: var(--muted); }
+
+  .stage-wrap {
+    position: relative;
+    width: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--line);
+    background: #0a0d12;
+    box-shadow: var(--shadow);
+    cursor: default;
+    touch-action: none;
+  }
+  .stage-wrap.region-mode { cursor: crosshair; }
+  .stage-wrap canvas { display: block; width: 100%; height: 100%; }
+  .stage-wrap .empty {
+    position: absolute; inset: 0; display: grid; place-items: center;
+    color: var(--dim); font-size: 13px; text-align: center; padding: 24px;
+    pointer-events: none;
+  }
+  .stage-wrap .corner {
+    position: absolute; top: 9px; left: 10px;
+    padding: 3px 7px; border-radius: 6px; background: rgba(8,10,14,.68);
+    color: #b9c6d8; font-size: 11px; pointer-events: none;
+  }
+  .stage-wrap .stale {
+    position: absolute; top: 9px; right: 10px;
+    padding: 3px 8px; border-radius: 6px;
+    background: rgba(240,180,107,.16); color: #f4d0a0; border: 1px solid #6a4f2b;
+    font-size: 11px;
+  }
+
+  .progress-card { padding: 12px 14px; margin-bottom: 0; }
+  .progress-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+  .progress-top strong { font-size: 13px; }
+  .progress-top span { color: var(--muted); font-size: 12px; text-align: right; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bar { height: 8px; border-radius: 999px; background: #0e141c; border: 1px solid var(--line); overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, #4a86e8, #8ad7a8); transition: width .35s ease; }
+  .progress-meta { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 7px; color: var(--muted); font-size: 11.5px; }
+
+  .plan-steps { margin: 9px 0 0; padding: 0 4px 0 0; list-style: none; display: grid; gap: 3px; font-size: 11.5px; max-height: 118px; overflow-y: auto; position: relative; scrollbar-width: thin; }
+  .plan-steps li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 7px; align-items: baseline; color: var(--muted); }
+  .plan-steps li .ico { text-align: center; }
+  .plan-steps li .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .plan-steps li .name small { color: var(--muted); opacity: .8; margin-left: 6px; }
+  .plan-steps li .time { font-variant-numeric: tabular-nums; }
+  .plan-steps li.running { color: var(--text); }
+  .plan-steps li.running .ico { color: var(--accent); animation: planpulse 1s ease-in-out infinite; }
+  .plan-steps li.done .ico { color: var(--accent-2); }
+  .plan-steps li.failed { color: var(--bad, #ff7b7b); }
+  .plan-steps li.skipped { opacity: .5; }
+  .plan-sub { height: 3px; border-radius: 999px; background: #0e141c; margin-top: 2px; overflow: hidden; grid-column: 2 / 4; }
+  .plan-sub > i { display: block; height: 100%; background: var(--accent); transition: width .3s ease; }
+  @keyframes planpulse { 50% { opacity: .35; } }
+
+  .metrics { display: flex; flex-wrap: wrap; gap: 7px; }
+  .metric {
+    display: flex; align-items: baseline; gap: 6px;
+    border: 1px solid var(--line); border-radius: 9px;
+    padding: 6px 9px; background: #101620;
+    font-size: 11.5px; color: var(--muted);
+  }
+  .metric strong { color: var(--text); font-size: 13px; font-variant-numeric: tabular-nums; }
+  .metric.good strong { color: var(--accent-2); }
+  .metric.warn strong { color: var(--warn); }
+
+  .stages { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; }
+  .stages figure { margin: 0; width: 120px; flex: 0 0 auto; cursor: pointer; }
+  .stages img { width: 100%; border-radius: 8px; border: 1px solid var(--line); display: block; background: #fff; }
+  .stages figcaption { color: var(--muted); font-size: 10.5px; text-align: center; margin-top: 3px; }
+  .stages figure.active img { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(110,168,254,.25); }
+
+  details.logbox { border: 1px solid var(--line); border-radius: 12px; background: #0b0f15; }
+  details.logbox summary { padding: 9px 12px; cursor: pointer; color: var(--muted); font-size: 12px; }
+  details.logbox pre { margin: 0; padding: 0 12px 12px; max-height: 220px; overflow: auto; white-space: pre-wrap; color: #a9b6c7; font-size: 11px; }
+
+  .live .timer {
+    font-size: 38px; font-weight: 700; letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums; line-height: 1.1;
+    margin: 2px 0 10px;
+  }
+  .live .timer.low { color: var(--danger); }
+  .live .timer.none { color: var(--dim); font-size: 22px; }
+  .word-line { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line); }
+  .word-line:last-of-type { border-bottom: 0; }
+  .word-line .label { color: var(--muted); font-size: 11.5px; }
+  .word-line strong { font-size: 18px; text-align: right; word-break: break-word; }
+  .word-line .prev { color: #c2ccda; font-size: 13px; text-align: right; }
+  .chips { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .chip { padding: 3px 7px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); font-size: 10.5px; }
+  dl.kv { display: grid; grid-template-columns: auto 1fr; gap: 5px 10px; margin: 10px 0 0; font-size: 12px; }
+  dl.kv dt { color: var(--muted); }
+  dl.kv dd { margin: 0; text-align: right; color: #cfd8e5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .jobs { display: flex; flex-direction: column; gap: 8px; max-height: 45vh; overflow: auto; }
+  .job {
+    display: flex; gap: 9px; align-items: center;
+    border: 1px solid var(--line); border-radius: 10px; padding: 7px;
+    background: #101620; cursor: pointer;
+  }
+  .job:hover { border-color: var(--line-2); }
+  .job.active { border-color: #3b557a; box-shadow: inset 0 0 0 1px #2f4768; }
+  .job img { width: 44px; height: 44px; object-fit: cover; border-radius: 7px; background: #fff; flex: 0 0 auto; }
+  .job .text { min-width: 0; flex: 1; }
+  .job .title { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+  .job .sub { color: var(--muted); font-size: 10.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--dim); flex: 0 0 auto; }
+  .status-dot.planned, .status-dot.done { background: var(--accent-2); }
+  .status-dot.planning, .status-dot.drawing, .status-dot.queued { background: var(--warn); }
+  .status-dot.failed, .status-dot.interrupted { background: var(--danger); }
+  .status-dot.cancelled { background: var(--dim); }
+
+  dialog {
+    border: 1px solid var(--line-2); border-radius: 16px; padding: 0;
+    background: var(--panel); color: var(--text);
+    width: min(560px, calc(100vw - 32px));
+    box-shadow: 0 40px 100px rgba(0,0,0,.6);
+  }
+  dialog::backdrop { background: rgba(5, 7, 10, .68); backdrop-filter: blur(3px); }
+  dialog .dialog-body { padding: 18px 20px; position: relative; }
+  dialog h3 { margin: 0 0 4px; font-size: 16px; }
+  dialog .close { position: absolute; top: 10px; right: 10px; }
+  dialog .section { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+  dialog code { display: block; white-space: pre-wrap; background: #0b0f15; border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; color: #a9b6c7; font-size: 11px; margin-top: 6px; }
+  dialog p code { display: inline; padding: 1px 5px; margin: 0; }
+
+  #toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 50; }
+  .toast {
+    min-width: 220px; max-width: 380px;
+    padding: 10px 13px; border-radius: 11px;
+    border: 1px solid var(--line-2); background: #18202b;
+    color: var(--text); box-shadow: var(--shadow); font-size: 12.5px;
+    animation: pop .16s ease-out;
+  }
+  .toast.bad { border-color: #6a3a3a; background: #2a1a1c; color: #ffd0d0; }
+  .toast.good { border-color: #2f5241; background: #16251e; color: #d6f3e2; }
+  @keyframes pop { from { transform: translateY(6px); opacity: 0; } }
+
+  .footer-note { color: var(--dim); font-size: 11px; line-height: 1.6; padding: 2px 2px 8px; }
+  .divider { height: 1px; background: var(--line); margin: 11px 0; }
+  .hidden { display: none !important; }
+
+  @media (max-width: 1240px) {
+    body { display: block; height: auto; min-height: 100%; overflow: auto; }
+    main { min-height: calc(100vh - 58px); grid-template-columns: 340px minmax(380px, 1fr); overflow: visible; }
+    aside, .center { overflow: visible; }
+    main > aside.right { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
+  }
+  @media (max-width: 880px) {
+    main { grid-template-columns: 1fr; overflow: visible; padding: 12px; }
+    aside, .center { overflow: visible; }
+    main > aside.right { grid-template-columns: 1fr; }
+    .statusbar .pill span:not(.dot) { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><strong>Sumie</strong><span>Studio · Draw &amp; Guess</span></div>
+  <div class="statusbar">
+    <span class="pill" id="bridgePill"><i class="dot"></i><span>桥接</span></span>
+    <span class="pill" id="studioPill"><i class="dot"></i><span>绘制服务</span></span>
+    <span class="pill" id="gamePill"><i class="dot"></i><span>游戏</span></span>
+    <select id="langSel" aria-label="Language" style="width:auto;padding:4px 8px;margin-right:4px"></select>
+    <button class="icon-btn" id="settingsBtn" title="设置" aria-label="设置">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.89a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.55V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9a1.7 1.7 0 0 0 1.55 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="banner hidden" id="banner">
+  <div class="grow" id="bannerText"></div>
+  <button id="bannerAction" class="small">重试</button>
+</div>
+
+<main>
+  <!-- LEFT -->
+  <aside class="left">
+    <section class="card">
+      <h2><span class="step">1</span> 图片</h2>
+      <div class="dropzone" id="dropzone">
+        <div class="placeholder" id="dropPlaceholder">
+          <strong>粘贴 / 拖入 / 选择图片</strong>
+          直接按 ⌘V 粘贴剪贴板图片<br>PNG · JPEG · WebP · GIF · BMP
+        </div>
+        <img id="sourceImg" class="hidden" alt="待绘制图片">
+        <button class="clear hidden" id="clearImage" title="移除图片" aria-label="移除图片">×</button>
+        <div class="meta hidden" id="sourceMeta"><span id="sourceName"></span><span id="sourceSize"></span></div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary grow" id="pasteBtn">从剪贴板粘贴</button>
+        <button id="fileBtn">选择文件</button>
+        <input type="file" id="fileInput" accept="image/*" class="hidden">
+      </div>
+      <div class="row" style="margin-top:7px">
+        <button class="ghost grow" id="pasteDrawBtn">粘贴并直接绘制</button>
+        <button class="ghost grow" id="pastePreviewBtn">粘贴并预览</button>
+      </div>
+      <div class="hint" style="margin-top:8px" id="imageHint">尚未选择图片。粘贴后可直接预览或绘制。</div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">2</span> 风格</h2>
+      <select id="style">
+        <option value="anime_study">Anime Study（默认，粗笔概括）</option>
+        <option value="anime_human">Anime Human（像人一样画：先线稿，压感，分层画笔涂色）</option>
+        <option value="anime_flat">Anime Flat（分色 + 中心线）</option>
+        <option value="sketch">Sketch（速写线稿）</option>
+        <option value="impasto">Impasto（厚涂）</option>
+        <option value="watercolor">Watercolor（水彩）</option>
+      </select>
+      <p class="hint" id="styleDesc" style="margin:8px 0 0"></p>
+      <div class="presets" id="presets">
+        <button data-preset="quick">快速 60s</button>
+        <button data-preset="standard">标准 180s</button>
+        <button data-preset="fine">精细 300s</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">3</span> 参数</h2>
+      <div class="segmented" id="timeMode" role="group" aria-label="时间来源">
+        <button data-mode="auto" class="active">自动读回合</button>
+        <button data-mode="manual">手动秒数</button>
+      </div>
+      <div class="grid2" style="margin-top:10px">
+        <label class="field"><span>秒数 <em id="timeHint">自动</em></span>
+          <input type="number" id="time" min="3" max="3600" step="1" value="180" disabled>
+        </label>
+        <label class="field"><span>基色数 <em>留空=自动</em></span>
+          <input type="number" id="colors" min="2" max="64" step="1" placeholder="auto">
+        </label>
+      </div>
+      <div class="grid2">
+        <label class="field"><span>笔画上限 <em>留空=900</em></span>
+          <input type="number" id="maxStrokes" min="1" max="6000" step="1" placeholder="auto">
+        </label>
+        <label class="field"><span>随机种子</span>
+          <input type="number" id="seed" min="0" step="1" value="7">
+        </label>
+      </div>
+      <details class="advanced">
+        <summary>更多参数</summary>
+        <div class="grid2">
+          <label class="field"><span>起笔停顿 (s)</span><input type="number" id="studyPause" min="0" max="5" step="0.01" value="0.26"></label>
+          <label class="field"><span>长度系数</span><input type="number" id="studySpeed" min="0" max="5" step="0.01" value="0.90"></label>
+          <label class="field"><span>留白</span><input type="number" id="margin" min="0" max="0.3" step="0.01" value="0.04"></label>
+          <label class="field"><span>最大边长 (px)</span><input type="number" id="maxDim" min="200" max="2000" step="20" placeholder="自动（按剩余时间 480–960）" title="留空：按回合剩余时间自动压缩大图，兼顾规划速度和画质"></label>
+        </div>
+        <label class="field"><span>绘制节奏</span>
+          <select id="pace"><option value="slow">慢慢画（默认，按剩余时间自动调速）</option><option value="instant">立刻画完</option></select>
+        </label>
+        <div class="grid2">
+          <label class="field"><span>线稿</span>
+            <select id="lineart"><option value="auto">自动</option><option value="off">关闭</option><option value="anime2sketch">强制 Anime2Sketch</option></select>
+          </label>
+          <label class="field"><span>推理设备</span>
+            <select id="lineartDevice"><option value="auto">自动</option><option value="cuda">CUDA</option><option value="mps">MPS</option><option value="cpu">CPU</option></select>
+          </label>
+        </div>
+        <label class="check" style="margin-bottom:7px"><input type="checkbox" id="force"> 游戏报告不可绘制时仍尝试</label>
+        <details class="advanced" id="humanOpts" open>
+          <summary>Anime Human 选项</summary>
+          <div class="grid2">
+            <label class="field"><span>笔输入</span>
+              <select id="pen"><option value="auto">自动（有压感用虚拟笔）</option><option value="direct">直接发整笔</option><option value="native">虚拟数位板</option></select>
+            </label>
+            <label class="field"><span>上色方式</span>
+              <select id="colour"><option value="auto">自动（图层够用就画笔）</option><option value="brush">画笔分层涂色</option><option value="bucket">油漆桶</option></select>
+            </label>
+            <label class="field"><span>压感系数</span><input type="number" id="humanPressure" min="0.3" max="3" step="0.05" value="1"></label>
+            <label class="field"><span>熟练度</span><input type="number" id="humanSkill" min="0.4" max="3.5" step="0.1" value="2.3"></label>
+            <label class="field"><span>画框边缘渐隐</span>
+              <select id="softenFrame"><option value="auto">自动</option><option value="on">开</option><option value="off">关</option></select>
+            </label>
+            <label class="field"><span>游戏帧率</span><input type="number" id="gameFps" min="30" max="1000" step="1" placeholder="240"></label>
+          </div>
+          <label class="check" style="margin-bottom:7px"><input type="checkbox" id="borders" checked> 涂色之后勾色块之间的边界线（仅画笔涂色；油漆桶需要边界）</label>
+        </details>
+        <details class="advanced">
+          <summary>其他风格参数</summary>
+          <div class="grid2">
+            <label class="field"><span>线稿阈值</span><input type="number" id="lineartThreshold" min="1" max="255" step="1" placeholder="45" title="越大线越少越深"></label>
+            <label class="field"><span>最多色块数</span><input type="number" id="maxRegions" min="10" max="5000" step="10" placeholder="600"></label>
+            <label class="field"><span>轮廓线颜色</span><input type="text" id="lineColor" placeholder="#202020（留空=自动）"></label>
+            <label class="field"><span>填充方式</span>
+              <select id="fillMode"><option value="auto">自动</option><option value="real">游戏填充</option><option value="polygon">多边形</option></select>
+            </label>
+          </div>
+          <label class="check" style="margin-bottom:7px"><input type="checkbox" id="fillWhite"> 也填充接近白色的区域</label>
+          <label class="check" style="margin-bottom:7px"><input type="checkbox" id="baseFill" checked> Impasto：先铺底色</label>
+          <label class="check" style="margin-bottom:7px"><input type="checkbox" id="outlines" checked> Impasto：加轮廓线</label>
+        </details>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">4</span> 绘制范围</h2>
+      <div class="segmented" id="rangeMode">
+        <button data-range="full" class="active">全屏</button>
+        <button data-range="region">选区</button>
+      </div>
+      <div class="hint" style="margin-top:8px" id="rangeHint">
+        图片适配整个画布（按比例，保留边距）。
+      </div>
+      <div class="grid3 hidden" id="regionFields" style="margin-top:8px">
+        <label class="field"><span>X</span><input type="number" id="regionX" min="0" max="1" step="0.01"></label>
+        <label class="field"><span>Y</span><input type="number" id="regionY" min="0" max="1" step="0.01"></label>
+        <label class="field"><span>宽</span><input type="number" id="regionW" min="0.01" max="1" step="0.01"></label>
+      </div>
+      <div class="row hidden" id="regionRow">
+        <label class="field grow" style="margin:0"><span>高</span><input type="number" id="regionH" min="0.01" max="1" step="0.01"></label>
+        <button class="small" id="regionReset">居中选区</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2><span class="step">5</span> 执行</h2>
+      <div class="row">
+        <button class="primary grow" id="previewBtn">生成预览</button>
+        <button class="accent grow" id="drawBtn">开始绘制</button>
+      </div>
+      <button class="danger hidden" id="cancelJobBtn" style="width:100%;margin-top:8px">取消当前作业</button>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="clearChk"> 绘制前清空画布（默认保留当前进度）</label>
+      <label class="check" style="margin-top:6px"><input type="checkbox" id="autoPlanChk" checked> 粘贴后自动生成预览</label>
+      <div class="hint" id="actionHint" style="margin-top:8px">先预览，再决定是否绘制。默认不会清空画布。</div>
+      <div class="hint" style="margin-top:4px">⌘↵ 预览 · ⇧⌘↵ 绘制</div>
+    </section>
+    <div class="footer-note" data-i18n-html>设置保存在本机；作业和历史记录保存在绘制服务的 <code>.cache/studio</code>。当前画布每 1.8 秒从游戏读取一次。</div>
+  </aside>
+
+  <!-- CENTER -->
+  <section class="center">
+    <div class="tabs">
+      <button data-tab="canvas" class="active">当前画布</button>
+      <button data-tab="preview">计划预览</button>
+      <button data-tab="stage">阶段</button>
+      <span class="grow"></span>
+      <span class="badge" id="canvasBadge">—</span>
+    </div>
+    <div class="stage-wrap" id="stageWrap">
+      <canvas id="stage"></canvas>
+      <div class="corner" id="stageCorner">16:9</div>
+      <div class="empty" id="stageEmpty">选择图片后，这里显示当前画布 / 计划预览。</div>
+      <div class="stale hidden" id="staleBadge">参数或选区已更改，请重新预览</div>
+    </div>
+    <div class="card progress-card">
+      <div class="progress-top">
+        <strong id="jobStatus">空闲</strong>
+        <span id="jobSummary">—</span>
+      </div>
+      <div class="bar"><i id="progressBar"></i></div>
+      <div class="progress-meta" id="progressMeta"></div>
+      <ul class="plan-steps hidden" id="planSteps" aria-label="规划步骤"></ul>
+    </div>
+    <div class="metrics" id="metrics"></div>
+    <div class="stages hidden" id="stages"></div>
+    <details class="logbox" id="logBox">
+      <summary>作业日志</summary>
+      <pre id="log">（尚无作业）</pre>
+    </details>
+  </section>
+
+  <!-- RIGHT -->
+  <aside class="right">
+    <section class="card live">
+      <h2>实时游戏 <span class="grow"></span><button class="small ghost" id="refreshGame">刷新</button></h2>
+      <div class="timer none" id="timer">无计时器</div>
+      <div class="word-line"><span class="label">当前词</span><strong id="word">—</strong></div>
+      <div class="word-line"><span class="label">上一轮</span><span class="prev" id="prevWord">—</span></div>
+      <div class="word-line"><span class="label">轮次</span><span class="prev" id="roundText">—</span></div>
+      <div class="chips" id="wordHistory"></div>
+      <dl class="kv">
+        <dt>状态</dt><dd id="gameStatus">—</dd>
+        <dt>工具</dt><dd id="tool">—</dd>
+        <dt>颜色</dt><dd id="color">—</dd>
+        <dt>画笔</dt><dd id="brush">—</dd>
+        <dt>画布元素</dt><dd id="lineCount">—</dd>
+      </dl>
+      <div class="divider"></div>
+      <div class="row">
+        <button class="small grow" id="undoBtn">撤销</button>
+        <button class="small grow" id="redoBtn">重做</button>
+        <button class="small grow" id="clearBtn">清空</button>
+      </div>
+      <div class="row" style="margin-top:7px">
+        <button class="small grow" id="submitBtn">提交</button>
+        <button class="small grow" id="exportBtn">导出笔画</button>
+      </div>
+      <button class="small ghost" id="restoreBtn" style="width:100%;margin-top:7px">恢复笔画（JSON）</button>
+      <input type="file" id="restoreInput" accept=".json,application/json" class="hidden">
+      <div class="hint" style="margin-top:8px">导出/恢复可用于重启游戏前保存当前画布。</div>
+    </section>
+
+    <section class="card">
+      <h2>作业记录 <span class="grow"></span><button class="small ghost" id="refreshJobs">刷新</button></h2>
+      <div class="jobs" id="jobs"><div class="hint">尚无作业。</div></div>
+    </section>
+  </aside>
+</main>
+
+<dialog id="settingsDialog">
+  <div class="dialog-body">
+    <button class="icon-btn close" id="closeSettings" aria-label="关闭窗口">×</button>
+    <h3>设置</h3>
+    <p class="hint" data-i18n-html>令牌必须与 BepInEx 配置 <code>Server/Token</code> 一致；修改配置后需要重启游戏。</p>
+    <div class="section">
+      <label class="field"><span>API Token <em>留空表示未设置</em></span>
+        <input type="text" id="tokenInput" placeholder="X-Api-Key" autocomplete="off">
+      </label>
+      <label class="field"><span>绘制服务端口</span>
+        <input type="number" id="studioPortInput" min="1024" max="65535" step="1" value="8770">
+      </label>
+      <div class="row">
+        <button class="primary" id="saveSettings">保存</button>
+        <button id="restartStudio">重启绘制服务</button>
+      </div>
+    </div>
+    <div class="section">
+      <h4 style="margin:0 0 4px">手动启动绘制服务</h4>
+      <p class="hint">插件通常会自动启动；如果失败，在终端运行：</p>
+      <code id="manualCommand">python client/studio_server.py</code>
+      <p class="hint" style="margin-top:8px" data-i18n-html>端口和路径可在 <code>com.clarke.drawguess.bridge.cfg</code> 的 <code>[Studio]</code> 段修改。服务只监听 127.0.0.1。</p>
+    </div>
+  </div>
+</dialog>
+
+<div id="toasts"></div>
+
+<script>
+"use strict";
+// ---------------------------------------------------------------------------
+// i18n: zh is the source language (the markup and code strings are Chinese).
+// Other languages are looked up by the exact Chinese string; entries with
+// {0} {1} … are patterns. A MutationObserver translates text/attributes the
+// app writes later, so the app code itself stays untouched.
+// ---------------------------------------------------------------------------
+const I18N_ROWS = [["桥接", "Bridge", "ブリッジ", "브리지", "Bridge"], ["绘制服务", "Draw service", "描画サービス", "그리기 서비스", "Zeichendienst"], ["游戏", "Game", "ゲーム", "게임", "Spiel"], ["设置", "Settings", "設定", "설정", "Einstellungen"], ["重试", "Retry", "再試行", "다시 시도", "Erneut versuchen"], ["图片", "Image", "画像", "이미지", "Bild"], ["粘贴 / 拖入 / 选择图片", "Paste / drop / choose an image", "貼り付け / ドロップ / 画像を選択", "붙여넣기 / 드롭 / 이미지 선택", "Bild einfügen / ablegen / auswählen"], ["直接按 ⌘V 粘贴剪贴板图片", "Press ⌘V to paste an image from the clipboard", "⌘V でクリップボードの画像を貼り付け", "⌘V로 클립보드 이미지를 붙여넣기", "Mit ⌘V ein Bild aus der Zwischenablage einfügen"], ["待绘制图片", "Image to draw", "描画する画像", "그릴 이미지", "Zu zeichnendes Bild"], ["移除图片", "Remove image", "画像を削除", "이미지 제거", "Bild entfernen"], ["从剪贴板粘贴", "Paste from clipboard", "クリップボードから貼り付け", "클립보드에서 붙여넣기", "Aus Zwischenablage einfügen"], ["选择文件", "Choose file", "ファイルを選択", "파일 선택", "Datei wählen"], ["粘贴并直接绘制", "Paste and draw", "貼り付けてすぐ描画", "붙여넣고 바로 그리기", "Einfügen und zeichnen"], ["粘贴并预览", "Paste and preview", "貼り付けてプレビュー", "붙여넣고 미리보기", "Einfügen und Vorschau"], ["尚未选择图片。粘贴后可直接预览或绘制。", "No image yet. After pasting you can preview or draw right away.", "画像が未選択です。貼り付け後すぐにプレビューまたは描画できます。", "아직 이미지가 없습니다. 붙여넣은 뒤 바로 미리보기 또는 그리기를 할 수 있습니다.", "Noch kein Bild. Nach dem Einfügen sind Vorschau oder Zeichnen sofort möglich."], ["风格", "Style", "スタイル", "스타일", "Stil"], ["Anime Study（默认，粗笔概括）", "Anime Study (default, bold-brush summary)", "Anime Study（既定・太い筆で要約）", "Anime Study (기본, 굵은 붓 요약)", "Anime Study (Standard, grober Pinsel)"], ["Anime Human（像人一样画：先线稿，压感，分层画笔涂色）", "Anime Human (draws like a person: line art first, pen pressure, layered brush colour)", "Anime Human（人のように描く：線画先行・筆圧・レイヤーブラシ着色）", "Anime Human (사람처럼 그리기: 선화 먼저, 필압, 레이어 브러시 채색)", "Anime Human (zeichnet wie ein Mensch: erst Linien, Stiftdruck, Farbe in Ebenen)"], ["Anime Flat（分色 + 中心线）", "Anime Flat (colour areas + centre lines)", "Anime Flat（色面＋中心線）", "Anime Flat (색면 + 중심선)", "Anime Flat (Farbflächen + Mittellinien)"], ["Sketch（速写线稿）", "Sketch (quick line sketch)", "Sketch（クロッキー線画）", "Sketch (빠른 선 스케치)", "Sketch (schnelle Linienskizze)"], ["Impasto（厚涂）", "Impasto (thick paint)", "Impasto（厚塗り）", "Impasto (두껍게 칠하기)", "Impasto (pastoser Farbauftrag)"], ["Watercolor（水彩）", "Watercolor", "Watercolor（水彩）", "Watercolor (수채화)", "Watercolor (Aquarell)"], ["快速 60s", "Quick 60s", "クイック 60秒", "빠르게 60초", "Schnell 60 s"], ["标准 180s", "Standard 180s", "標準 180秒", "표준 180초", "Standard 180 s"], ["精细 300s", "Fine 300s", "精細 300秒", "정밀 300초", "Fein 300 s"], ["参数", "Options", "パラメータ", "매개변수", "Parameter"], ["时间来源", "Time source", "時間の取得元", "시간 출처", "Zeitquelle"], ["自动读回合", "Auto (read round)", "ラウンドから自動取得", "라운드 자동 읽기", "Automatisch (Runde lesen)"], ["手动秒数", "Manual seconds", "秒数を手動指定", "초 수동 입력", "Sekunden manuell"], ["秒数", "Seconds", "秒数", "초", "Sekunden"], ["自动", "Auto", "自動", "자동", "Automatisch"], ["基色数", "Base colours", "基本色数", "기본 색 수", "Grundfarben"], ["留空=自动", "blank = auto", "空欄＝自動", "비우면 자동", "leer = automatisch"], ["笔画上限", "Stroke limit", "ストローク上限", "획 수 상한", "Strichlimit"], ["留空=900", "blank = 900", "空欄＝900", "비우면 900", "leer = 900"], ["随机种子", "Random seed", "乱数シード", "랜덤 시드", "Zufalls-Seed"], ["更多参数", "More options", "詳細パラメータ", "추가 매개변수", "Weitere Parameter"], ["起笔停顿 (s)", "Stroke-start pause (s)", "描き始めの間 (秒)", "획 시작 멈춤 (초)", "Pause vor dem Strich (s)"], ["长度系数", "Length factor", "長さ係数", "길이 계수", "Längenfaktor"], ["留白", "Margin", "余白", "여백", "Rand"], ["最大边长 (px)", "Max side (px)", "最大辺長 (px)", "최대 변 길이 (px)", "Max. Kantenlänge (px)"], ["自动（按剩余时间 480–960）", "Auto (480–960 by time left)", "自動（残り時間で 480–960）", "자동 (남은 시간에 따라 480–960)", "Automatisch (480–960 je nach Restzeit)"], ["留空：按回合剩余时间自动压缩大图，兼顾规划速度和画质", "Blank: large images are downscaled by remaining time, balancing planning speed and quality", "空欄：残り時間に応じて大きな画像を自動縮小し、計画速度と画質を両立します", "비우면 남은 시간에 따라 큰 이미지를 자동 축소해 계획 속도와 화질을 맞춥니다", "Leer: Große Bilder werden je nach Restzeit verkleinert (Planungstempo vs. Qualität)"], ["绘制节奏", "Drawing pace", "描画ペース", "그리기 속도", "Zeichentempo"], ["慢慢画（默认，按剩余时间自动调速）", "Slow (default, pace follows time left)", "ゆっくり（既定・残り時間に合わせ調整）", "천천히 (기본, 남은 시간에 맞춰 조절)", "Langsam (Standard, Tempo folgt der Restzeit)"], ["立刻画完", "Instant", "一気に描く", "즉시 완료", "Sofort fertig"], ["线稿", "Line art", "線画", "선화", "Linienzeichnung"], ["强制 Anime2Sketch", "Force Anime2Sketch", "Anime2Sketch を強制", "Anime2Sketch 강제", "Anime2Sketch erzwingen"], ["推理设备", "Inference device", "推論デバイス", "추론 장치", "Inferenzgerät"], ["游戏报告不可绘制时仍尝试", "Try even if the game says it cannot draw", "ゲームが描画不可と報告しても試す", "게임이 그릴 수 없다고 해도 시도", "Auch versuchen, wenn das Spiel „nicht zeichenbar“ meldet"], ["Anime Human 选项", "Anime Human options", "Anime Human オプション", "Anime Human 옵션", "Anime-Human-Optionen"], ["笔输入", "Pen input", "ペン入力", "펜 입력", "Stifteingabe"], ["自动（有压感用虚拟笔）", "Auto (virtual pen when pressure is available)", "自動（筆圧があれば仮想ペン）", "자동 (필압 있으면 가상 펜)", "Automatisch (virtueller Stift bei Druck)"], ["直接发整笔", "Send whole strokes", "ストロークを一括送信", "획 전체를 한 번에 전송", "Ganze Striche senden"], ["虚拟数位板", "Virtual tablet", "仮想ペンタブレット", "가상 타블렛", "Virtuelles Tablet"], ["上色方式", "Colouring method", "着色方法", "채색 방식", "Kolorierung"], ["自动（图层够用就画笔）", "Auto (brush if layers suffice)", "自動（レイヤーが足りればブラシ）", "자동 (레이어 충분하면 브러시)", "Automatisch (Pinsel, wenn Ebenen reichen)"], ["画笔分层涂色", "Layered brush colouring", "ブラシでレイヤー着色", "브러시 레이어 채색", "Pinsel in Ebenen"], ["油漆桶", "Paint bucket", "バケツ塗り", "페인트통", "Farbeimer"], ["压感系数", "Pressure factor", "筆圧係数", "필압 계수", "Druckfaktor"], ["熟练度", "Skill level", "熟練度", "숙련도", "Geschick"], ["画框边缘渐隐", "Fade frame edges", "フレーム縁をフェード", "프레임 가장자리 페이드", "Rahmenränder ausblenden"], ["开", "On", "オン", "켜기", "An"], ["关", "Off", "オフ", "끄기", "Aus"], ["游戏帧率", "Game FPS", "ゲームFPS", "게임 FPS", "Spiel-FPS"], ["涂色之后勾色块之间的边界线（仅画笔涂色；油漆桶需要边界）", "Draw borders between colour areas after colouring (brush colouring only; the bucket needs borders)", "着色後に色面の境界線を描く（ブラシ着色のみ。バケツには境界が必要）", "채색 후 색면 경계선 그리기 (브러시 채색 전용, 페인트통은 경계 필요)", "Nach dem Kolorieren Grenzen zwischen Farbflächen zeichnen (nur Pinsel; der Eimer braucht Grenzen)"], ["其他风格参数", "Other style options", "その他のスタイル設定", "기타 스타일 매개변수", "Weitere Stiloptionen"], ["线稿阈值", "Line-art threshold", "線画しきい値", "선화 임계값", "Linien-Schwellwert"], ["越大线越少越深", "Higher = fewer, darker lines", "大きいほど線が少なく濃くなる", "클수록 선이 적고 진해짐", "Höher = weniger, dunklere Linien"], ["最多色块数", "Max colour regions", "最大色面数", "최대 색면 수", "Max. Farbflächen"], ["轮廓线颜色", "Outline colour", "輪郭線の色", "윤곽선 색", "Konturfarbe"], ["#202020（留空=自动）", "#202020 (blank = auto)", "#202020（空欄＝自動）", "#202020 (비우면 자동)", "#202020 (leer = automatisch)"], ["填充方式", "Fill method", "塗りつぶし方法", "채우기 방식", "Füllmethode"], ["游戏填充", "Game fill", "ゲームの塗りつぶし", "게임 채우기", "Spielfüllung"], ["多边形", "Polygon", "多角形", "다각형", "Polygon"], ["也填充接近白色的区域", "Also fill near-white areas", "白に近い領域も塗る", "흰색에 가까운 영역도 채우기", "Auch fast weiße Flächen füllen"], ["Impasto：先铺底色", "Impasto: lay a base colour first", "Impasto：下地色を先に塗る", "Impasto: 바탕색 먼저 깔기", "Impasto: zuerst Grundfarbe auftragen"], ["Impasto：加轮廓线", "Impasto: add outlines", "Impasto：輪郭線を追加", "Impasto: 윤곽선 추가", "Impasto: Konturen hinzufügen"], ["绘制范围", "Drawing area", "描画範囲", "그리기 범위", "Zeichenbereich"], ["全屏", "Full canvas", "全画面", "전체 캔버스", "Ganze Fläche"], ["选区", "Region", "選択範囲", "선택 영역", "Bereich"], ["图片适配整个画布（按比例，保留边距）。", "The image fits the whole canvas (keeping aspect ratio and margin).", "画像をキャンバス全体に合わせます（縦横比と余白を維持）。", "이미지를 캔버스 전체에 맞춥니다 (비율과 여백 유지).", "Das Bild füllt die ganze Zeichenfläche (Seitenverhältnis und Rand bleiben erhalten)."], ["宽", "Width", "幅", "너비", "Breite"], ["高", "Height", "高さ", "높이", "Höhe"], ["居中选区", "Centre region", "選択範囲を中央へ", "영역 가운데로", "Bereich zentrieren"], ["执行", "Run", "実行", "실행", "Ausführen"], ["生成预览", "Generate preview", "プレビュー生成", "미리보기 생성", "Vorschau erzeugen"], ["开始绘制", "Start drawing", "描画開始", "그리기 시작", "Zeichnen starten"], ["开始绘制（复用预览）", "Start drawing (reuse preview)", "描画開始（プレビューを再利用）", "그리기 시작 (미리보기 재사용)", "Zeichnen starten (Vorschau wiederverwenden)"], ["取消当前作业", "Cancel current job", "現在のジョブを中止", "현재 작업 취소", "Aktuellen Auftrag abbrechen"], ["绘制前清空画布（默认保留当前进度）", "Clear the canvas before drawing (keeps progress by default)", "描画前にキャンバスを消去（既定は保持）", "그리기 전에 캔버스 지우기 (기본은 유지)", "Zeichenfläche vorher leeren (Standard: behalten)"], ["粘贴后自动生成预览", "Generate a preview automatically after pasting", "貼り付け後に自動でプレビュー生成", "붙여넣은 뒤 미리보기 자동 생성", "Nach dem Einfügen automatisch Vorschau erzeugen"], ["先预览，再决定是否绘制。默认不会清空画布。", "Preview first, then decide whether to draw. The canvas is not cleared by default.", "まずプレビューし、描くか決めます。既定ではキャンバスを消去しません。", "먼저 미리보기를 보고 그릴지 결정하세요. 기본적으로 캔버스를 지우지 않습니다.", "Erst Vorschau, dann entscheiden. Die Zeichenfläche wird standardmäßig nicht geleert."], ["⌘↵ 预览", "⌘↵ Preview", "⌘↵ プレビュー", "⌘↵ 미리보기", "⌘↵ Vorschau"], ["⇧⌘↵ 绘制", "⇧⌘↵ Draw", "⇧⌘↵ 描画", "⇧⌘↵ 그리기", "⇧⌘↵ Zeichnen"], ["当前画布", "Canvas", "現在のキャンバス", "현재 캔버스", "Zeichenfläche"], ["计划预览", "Plan preview", "計画プレビュー", "계획 미리보기", "Plan-Vorschau"], ["阶段", "Stages", "段階", "단계", "Phasen"], ["选择图片后，这里显示当前画布 / 计划预览。", "After you choose an image, the canvas / plan preview appears here.", "画像を選ぶと、ここに現在のキャンバス／計画プレビューが表示されます。", "이미지를 선택하면 여기에 현재 캔버스 / 계획 미리보기가 표시됩니다.", "Nach der Bildauswahl erscheint hier die Zeichenfläche bzw. die Plan-Vorschau."], ["参数或选区已更改，请重新预览", "Options or region changed, please preview again", "設定または選択範囲が変更されました。再プレビューしてください", "설정 또는 영역이 바뀌었습니다. 미리보기를 다시 만드세요", "Optionen oder Bereich geändert – bitte Vorschau neu erzeugen"], ["空闲", "Idle", "待機中", "대기 중", "Leerlauf"], ["规划步骤", "Planning steps", "計画ステップ", "계획 단계", "Planungsschritte"], ["作业日志", "Job log", "ジョブログ", "작업 로그", "Auftragsprotokoll"], ["（尚无作业）", "(no job yet)", "（ジョブなし）", "(작업 없음)", "(noch kein Auftrag)"], ["实时游戏", "Live game", "ライブゲーム", "실시간 게임", "Live-Spiel"], ["刷新", "Refresh", "更新", "새로고침", "Aktualisieren"], ["无计时器", "No timer", "タイマーなし", "타이머 없음", "Kein Timer"], ["当前词", "Current word", "現在のお題", "현재 단어", "Aktuelles Wort"], ["上一轮", "Previous", "前のラウンド", "이전 라운드", "Vorherige Runde"], ["轮次", "Round", "ラウンド", "라운드", "Runde"], ["状态", "Status", "状態", "상태", "Status"], ["工具", "Tool", "ツール", "도구", "Werkzeug"], ["颜色", "Colour", "色", "색상", "Farbe"], ["画笔", "Brush", "ブラシ", "브러시", "Pinsel"], ["画布元素", "Canvas items", "キャンバス要素", "캔버스 요소", "Elemente"], ["撤销", "Undo", "元に戻す", "실행 취소", "Rückgängig"], ["重做", "Redo", "やり直し", "다시 실행", "Wiederholen"], ["清空", "Clear", "消去", "지우기", "Leeren"], ["提交", "Submit", "提出", "제출", "Abgeben"], ["导出笔画", "Export strokes", "ストローク書き出し", "획 내보내기", "Striche exportieren"], ["恢复笔画（JSON）", "Restore strokes (JSON)", "ストローク復元（JSON）", "획 복원 (JSON)", "Striche wiederherstellen (JSON)"], ["导出/恢复可用于重启游戏前保存当前画布。", "Export/restore saves the canvas before you restart the game.", "書き出し／復元でゲーム再起動前にキャンバスを保存できます。", "내보내기/복원으로 게임을 재시작하기 전에 캔버스를 저장할 수 있습니다.", "Export/Wiederherstellen sichert die Zeichenfläche vor einem Spielneustart."], ["作业记录", "Jobs", "ジョブ履歴", "작업 기록", "Aufträge"], ["尚无作业。", "No jobs yet.", "ジョブはまだありません。", "아직 작업이 없습니다.", "Noch keine Aufträge."], ["API Token", "API Token", "API トークン", "API 토큰", "API-Token"], ["留空表示未设置", "blank = not set", "空欄＝未設定", "비우면 미설정", "leer = nicht gesetzt"], ["绘制服务端口", "Draw service port", "描画サービスのポート", "그리기 서비스 포트", "Port des Zeichendienstes"], ["保存", "Save", "保存", "저장", "Speichern"], ["重启绘制服务", "Restart draw service", "描画サービスを再起動", "그리기 서비스 재시작", "Zeichendienst neu starten"], ["手动启动绘制服务", "Start the draw service manually", "描画サービスを手動で起動", "그리기 서비스 수동 시작", "Zeichendienst manuell starten"], ["插件通常会自动启动；如果失败，在终端运行：", "The plugin normally starts it automatically; if that fails, run this in a terminal:", "通常はプラグインが自動起動します。失敗した場合はターミナルで実行してください：", "보통 플러그인이 자동으로 시작합니다. 실패하면 터미널에서 실행하세요:", "Das Plugin startet ihn normalerweise automatisch; falls nicht, im Terminal ausführen:"], ["设置保存在本机；作业和历史记录保存在绘制服务的 <code>.cache/studio</code>。当前画布每 1.8 秒从游戏读取一次。", "Settings are stored locally; jobs and history live in the draw service's <code>.cache/studio</code>. The canvas is read from the game every 1.8 s.", "設定はローカルに保存され、ジョブと履歴は描画サービスの <code>.cache/studio</code> に保存されます。キャンバスは 1.8 秒ごとにゲームから読み取ります。", "설정은 로컬에 저장되고 작업·기록은 그리기 서비스의 <code>.cache/studio</code>에 저장됩니다. 캔버스는 1.8초마다 게임에서 읽어옵니다.", "Einstellungen werden lokal gespeichert; Aufträge und Verlauf liegen im <code>.cache/studio</code> des Zeichendienstes. Die Zeichenfläche wird alle 1,8 s aus dem Spiel gelesen."], ["令牌必须与 BepInEx 配置 <code>Server/Token</code> 一致；修改配置后需要重启游戏。", "The token must match <code>Server/Token</code> in the BepInEx config; restart the game after changing it.", "トークンは BepInEx 設定の <code>Server/Token</code> と一致させてください。変更後はゲームの再起動が必要です。", "토큰은 BepInEx 설정의 <code>Server/Token</code>과 같아야 합니다. 변경 후 게임을 재시작하세요.", "Das Token muss mit <code>Server/Token</code> in der BepInEx-Konfiguration übereinstimmen; nach Änderungen Spiel neu starten."], ["端口和路径可在 <code>com.clarke.drawguess.bridge.cfg</code> 的 <code>[Studio]</code> 段修改。服务只监听 127.0.0.1。", "Port and paths can be changed in the <code>[Studio]</code> section of <code>com.clarke.drawguess.bridge.cfg</code>. The service listens on 127.0.0.1 only.", "ポートとパスは <code>com.clarke.drawguess.bridge.cfg</code> の <code>[Studio]</code> セクションで変更できます。サービスは 127.0.0.1 のみで待ち受けます。", "포트와 경로는 <code>com.clarke.drawguess.bridge.cfg</code>의 <code>[Studio]</code> 섹션에서 바꿀 수 있습니다. 서비스는 127.0.0.1에서만 수신합니다.", "Port und Pfade stehen im Abschnitt <code>[Studio]</code> von <code>com.clarke.drawguess.bridge.cfg</code>. Der Dienst lauscht nur auf 127.0.0.1."], ["主体去背景、少色、粗笔蛇形涂色，最后勾线。无填充。", "Subject cut out, few colours, bold serpentine brush fills, line work last. No bucket fills.", "被写体を切り抜き、少色・太筆の蛇行塗りで、最後に線を描きます。塗りつぶしなし。", "피사체를 오려내고 적은 색, 굵은 붓의 뱀 모양 채색 후 마지막에 선을 긋습니다. 채우기 없음.", "Motiv freigestellt, wenige Farben, grobe Schlangenlinien, zuletzt Linien. Keine Füllungen."], ["像人一样画：先线稿，每笔压感粗细不同，真人节奏；颜色用画笔画在线稿下面的虚拟图层上（插件支持时，否则用油漆桶）；有无压感都能用。", "Draws like a person: line art first, every stroke with its own pressure width, human rhythm; colour is brushed on virtual layers under the line art (if the plugin supports it, otherwise the bucket); works with or without pressure.", "人のように描く：まず線画、各ストロークに異なる筆圧の太さ、人間らしいリズム。色は線画の下の仮想レイヤーにブラシで塗ります（プラグイン対応時。非対応ならバケツ）。筆圧の有無を問いません。", "사람처럼 그리기: 선화 먼저, 획마다 다른 필압 굵기, 사람 같은 리듬. 색은 선화 아래 가상 레이어에 브러시로 칠합니다 (플러그인 지원 시, 아니면 페인트통). 필압 유무와 상관없이 동작합니다.", "Zeichnet wie ein Mensch: erst Linien, jeder Strich mit eigener Druckbreite, menschlicher Rhythmus; Farbe wird auf virtuellen Ebenen unter den Linien gemalt (bei Plugin-Unterstützung, sonst Eimer); mit oder ohne Druck nutzbar."], ["分色块 + 单中心线，适合平涂插画。", "Colour areas + single centre lines, suited to flat-colour illustrations.", "色面＋単一の中心線。フラット塗りのイラスト向け。", "색면 + 단일 중심선, 플랫 채색 일러스트에 적합합니다.", "Farbflächen + einfache Mittellinien, passend für flächige Illustrationen."], ["中心线、排线和少量颜色点缀。", "Centre lines, hatching and a few colour accents.", "中心線、ハッチング、少量の色のアクセント。", "중심선, 해칭, 약간의 색 포인트.", "Mittellinien, Schraffur und wenige Farbakzente."], ["多层曲线笔触，厚涂质感。", "Layered curved strokes with a thick-paint feel.", "重ねた曲線ストロークによる厚塗りの質感。", "여러 겹의 곡선 붓터치로 만든 두꺼운 질감.", "Mehrlagige Kurvenstriche mit pastosem Look."], ["浅色块、留白和细线，水彩/马克笔感。", "Pale colour areas, white space and thin lines, like watercolour or markers.", "淡い色面、余白、細い線。水彩／マーカー風。", "옅은 색면, 여백, 가는 선으로 수채화/마커 느낌.", "Helle Farbflächen, Weißraum und feine Linien – wie Aquarell oder Marker."], ["{0} 秒前", "{0} s ago", "{0} 秒前", "{0}초 전", "vor {0} s"], ["{0} 分钟前", "{0} min ago", "{0} 分前", "{0}분 전", "vor {0} Min."], ["无法连接桥接 127.0.0.1:8765", "Cannot reach the bridge at 127.0.0.1:8765", "ブリッジ 127.0.0.1:8765 に接続できません", "브리지 127.0.0.1:8765에 연결할 수 없습니다", "Bridge 127.0.0.1:8765 nicht erreichbar"], ["无法连接绘制服务 {0}", "Cannot reach the draw service {0}", "描画サービス {0} に接続できません", "그리기 서비스 {0}에 연결할 수 없습니다", "Zeichendienst {0} nicht erreichbar"], ["绘制服务未启动：{0}。可在设置里手动启动，或检查 BepInEx [Studio] 配置。", "Draw service not running: {0}. Start it manually in Settings, or check the BepInEx [Studio] config.", "描画サービスが起動していません：{0}。設定から手動起動するか、BepInEx の [Studio] 設定を確認してください。", "그리기 서비스가 실행 중이 아닙니다: {0}. 설정에서 수동 시작하거나 BepInEx [Studio] 설정을 확인하세요.", "Zeichendienst läuft nicht: {0}. In den Einstellungen manuell starten oder die BepInEx-[Studio]-Konfiguration prüfen."], ["打开设置", "Open settings", "設定を開く", "설정 열기", "Einstellungen öffnen"], ["桥接在线", "Bridge online", "ブリッジ オンライン", "브리지 온라인", "Bridge online"], ["桥接离线", "Bridge offline", "ブリッジ オフライン", "브리지 오프라인", "Bridge offline"], ["绘制服务在线", "Draw service online", "描画サービス オンライン", "그리기 서비스 온라인", "Zeichendienst online"], ["绘制服务离线", "Draw service offline", "描画サービス オフライン", "그리기 서비스 오프라인", "Zeichendienst offline"], ["未进入画布", "Not on a canvas", "キャンバス未進入", "캔버스에 들어가지 않음", "Nicht auf einer Zeichenfläche"], ["可绘制", "Can draw", "描画可能", "그리기 가능", "Zeichenbereit"], ["等待回合", "Waiting for round", "ラウンド待ち", "라운드 대기", "Warte auf Runde"], ["无法连接游戏桥接（127.0.0.1:8765）。确认游戏已启动、BepInEx 插件已加载，并且已经进入 Sketchbook 或绘画回合。", "Cannot reach the game bridge (127.0.0.1:8765). Make sure the game is running, the BepInEx plugin is loaded, and you are in a Sketchbook or a drawing round.", "ゲームブリッジ（127.0.0.1:8765）に接続できません。ゲームが起動し、BepInEx プラグインが読み込まれ、スケッチブックまたは描画ラウンドに入っているか確認してください。", "게임 브리지(127.0.0.1:8765)에 연결할 수 없습니다. 게임이 실행 중이고 BepInEx 플러그인이 로드되었으며 스케치북 또는 그림 라운드에 들어갔는지 확인하세요.", "Game-Bridge (127.0.0.1:8765) nicht erreichbar. Prüfen: Spiel läuft, BepInEx-Plugin geladen und Skizzenbuch oder Zeichenrunde geöffnet."], ["无绘制模块", "No draw module", "描画モジュールなし", "그리기 모듈 없음", "Kein Zeichenmodul"], ["等待", "Waiting", "待機", "대기", "Warten"], ["已提交", "Submitted", "提出済み", "제출됨", "Abgegeben"], ["回合中", "In round", "ラウンド中", "라운드 중", "In der Runde"], ["{0} 元素", "{0} items", "{0} 要素", "요소 {0}개", "{0} Elemente"], ["图层 {0}/{1}", "Layer {0}/{1}", "レイヤー {0}/{1}", "레이어 {0}/{1}", "Ebene {0}/{1}"], ["手动", "Manual", "手動", "수동", "Manuell"], ["请选择图片文件", "Please choose an image file", "画像ファイルを選択してください", "이미지 파일을 선택하세요", "Bitte eine Bilddatei wählen"], ["图片超过 24 MB", "Image is larger than 24 MB", "画像が 24 MB を超えています", "이미지가 24 MB를 넘습니다", "Bild ist größer als 24 MB"], ["图片已载入。检查风格和选区后生成预览。", "Image loaded. Check the style and region, then generate a preview.", "画像を読み込みました。スタイルと範囲を確認してプレビューを生成してください。", "이미지를 불러왔습니다. 스타일과 영역을 확인한 뒤 미리보기를 생성하세요.", "Bild geladen. Stil und Bereich prüfen, dann Vorschau erzeugen."], ["图片已更换", "image replaced", "画像を変更", "이미지 교체됨", "Bild ersetzt"], ["图片已移除", "image removed", "画像を削除", "이미지 제거됨", "Bild entfernt"], ["无法读取这张图片", "Cannot read this image", "この画像を読み取れません", "이 이미지를 읽을 수 없습니다", "Dieses Bild kann nicht gelesen werden"], ["读取图片失败", "Failed to read the image", "画像の読み取りに失敗", "이미지 읽기 실패", "Bild konnte nicht gelesen werden"], ["当前浏览器不支持读取剪贴板", "This browser cannot read the clipboard", "このブラウザはクリップボードの読み取りに非対応です", "이 브라우저는 클립보드 읽기를 지원하지 않습니다", "Dieser Browser kann die Zwischenablage nicht lesen"], ["剪贴板里没有图片。可以先截图或复制一张图，然后按 ⌘V。", "No image on the clipboard. Take a screenshot or copy a picture, then press ⌘V.", "クリップボードに画像がありません。スクリーンショットか画像をコピーして ⌘V を押してください。", "클립보드에 이미지가 없습니다. 스크린샷을 찍거나 이미지를 복사한 뒤 ⌘V를 누르세요.", "Keine Bilddaten in der Zwischenablage. Screenshot machen oder Bild kopieren, dann ⌘V drücken."], ["无法读取剪贴板：{0}。请直接按 ⌘V 粘贴。", "Cannot read the clipboard: {0}. Press ⌘V to paste instead.", "クリップボードを読み取れません：{0}。⌘V で直接貼り付けてください。", "클립보드를 읽을 수 없습니다: {0}. ⌘V로 직접 붙여넣으세요.", "Zwischenablage nicht lesbar: {0}. Bitte direkt ⌘V drücken."], ["只在选区内绘制：x={0} y={1} 宽={2} 高={3}（左下角为原点）。在中间画布上拖动可重新框选。", "Drawing only inside the region: x={0} y={1} w={2} h={3} (origin at bottom-left). Drag on the canvas to reselect.", "選択範囲内のみ描画：x={0} y={1} 幅={2} 高さ={3}（原点は左下）。中央のキャンバスをドラッグして再選択できます。", "영역 안에서만 그립니다: x={0} y={1} 너비={2} 높이={3} (원점은 왼쪽 아래). 가운데 캔버스를 드래그해 다시 선택하세요.", "Gezeichnet wird nur im Bereich: x={0} y={1} B={2} H={3} (Ursprung unten links). Auf der Fläche ziehen, um neu zu wählen."], ["{0}；旧预览已过期，绘制时会重新规划。", "{0}; the old preview is stale and drawing will re-plan.", "{0}。古いプレビューは無効になり、描画時に再計画します。", "{0}. 이전 미리보기는 만료되어 그릴 때 다시 계획합니다.", "{0}; die alte Vorschau ist veraltet, beim Zeichnen wird neu geplant."], ["拖动画布框选绘制区域；这里会显示游戏画布。", "Drag on the canvas to pick a region; the game canvas is shown here.", "キャンバス上をドラッグして描画範囲を選択します。ここにゲームのキャンバスが表示されます。", "캔버스를 드래그해 영역을 선택하세요. 여기에 게임 캔버스가 표시됩니다.", "Auf der Fläche ziehen, um einen Bereich zu wählen; hier erscheint die Spiel-Zeichenfläche."], ["游戏画布还没有笔画，或尚未连接。", "The game canvas has no strokes yet, or is not connected.", "ゲームのキャンバスにまだストロークがないか、未接続です。", "게임 캔버스에 아직 획이 없거나 연결되지 않았습니다.", "Die Spiel-Zeichenfläche ist noch leer oder nicht verbunden."], ["还没有计划预览。先选择图片并生成预览。", "No plan preview yet. Choose an image and generate one.", "計画プレビューはまだありません。画像を選んで生成してください。", "아직 계획 미리보기가 없습니다. 이미지를 선택하고 생성하세요.", "Noch keine Plan-Vorschau. Bild wählen und Vorschau erzeugen."], ["选区已更改", "region changed", "選択範囲を変更", "영역 변경됨", "Bereich geändert"], ["选区已重置", "region reset", "選択範囲をリセット", "영역 초기화됨", "Bereich zurückgesetzt"], ["先粘贴或选择一张图片", "Paste or choose an image first", "先に画像を貼り付けるか選択してください", "먼저 이미지를 붙여넣거나 선택하세요", "Zuerst ein Bild einfügen oder wählen"], ["绘制服务未连接，正在尝试启动…", "Draw service not connected, trying to start it…", "描画サービス未接続。起動を試みています…", "그리기 서비스에 연결되지 않아 시작을 시도합니다…", "Zeichendienst nicht verbunden, Start wird versucht…"], ["还没有进入画布（Sketchbook 或绘画回合）", "Not on a canvas yet (Sketchbook or a drawing round)", "まだキャンバスに入っていません（スケッチブックまたは描画ラウンド）", "아직 캔버스에 들어가지 않았습니다 (스케치북 또는 그림 라운드)", "Noch nicht auf einer Zeichenfläche (Skizzenbuch oder Zeichenrunde)"], ["游戏报告当前不可绘制（可能已提交或不在你的回合）。仍然提交吗？", "The game says drawing is not possible right now (maybe already submitted, or not your turn). Submit anyway?", "ゲームは現在描画不可と報告しています（提出済み、または自分の番ではない可能性）。それでも送信しますか？", "게임이 지금은 그릴 수 없다고 합니다 (이미 제출했거나 내 차례가 아닐 수 있음). 그래도 제출할까요?", "Das Spiel meldet, dass gerade nicht gezeichnet werden kann (evtl. abgegeben oder nicht dein Zug). Trotzdem senden?"], ["绘制前会清空当前画布（所有图层）。继续吗？", "The current canvas (all layers) will be cleared before drawing. Continue?", "描画前に現在のキャンバス（全レイヤー）を消去します。続行しますか？", "그리기 전에 현재 캔버스(모든 레이어)를 지웁니다. 계속할까요?", "Die Zeichenfläche (alle Ebenen) wird vor dem Zeichnen geleert. Fortfahren?"], ["正在规划…", "Planning…", "計画中…", "계획 중…", "Plane…"], ["正在提交绘制…", "Submitting the drawing…", "描画を送信中…", "그리기를 제출하는 중…", "Zeichnung wird gesendet…"], ["已开始规划", "Planning started", "計画を開始しました", "계획을 시작했습니다", "Planung gestartet"], ["已开始绘制", "Drawing started", "描画を開始しました", "그리기를 시작했습니다", "Zeichnen gestartet"], ["提交失败：{0}", "Submit failed: {0}", "送信失敗：{0}", "제출 실패: {0}", "Senden fehlgeschlagen: {0}"], ["排队中", "Queued", "待ち行列", "대기열", "In Warteschlange"], ["规划中", "Planning", "計画中", "계획 중", "Planung läuft"], ["预览就绪", "Preview ready", "プレビュー完了", "미리보기 준비됨", "Vorschau bereit"], ["绘制中", "Drawing", "描画中", "그리는 중", "Zeichnet"], ["完成", "Done", "完了", "완료", "Fertig"], ["失败", "Failed", "失敗", "실패", "Fehlgeschlagen"], ["已取消", "Cancelled", "キャンセル済み", "취소됨", "Abgebrochen"], ["已中断", "Interrupted", "中断", "중단됨", "Unterbrochen"], ["预览", "Preview", "プレビュー", "미리보기", "Vorschau"], ["绘制", "Draw", "描画", "그리기", "Zeichnen"], ["{0}/{1} 笔", "{0}/{1} strokes", "{0}/{1} ストローク", "{0}/{1}획", "{0}/{1} Striche"], ["阶段 {0}", "Phase {0}", "段階 {0}", "단계 {0}", "Phase {0}"], ["已用 {0}s", "elapsed {0}s", "経過 {0}s", "경과 {0}s", "{0}s vergangen"], ["计划 {0} 操作", "plan {0} ops", "計画 {0} 操作", "계획 {0}개 작업", "Plan {0} Ops"], ["实际 {0}s", "actual {0}s", "実測 {0}s", "실제 {0}s", "tatsächlich {0}s"], ["失败 {0}", "failed {0}", "失敗 {0}", "실패 {0}", "fehlgeschlagen {0}"], ["步骤 {0}/{1}：{2}", "Step {0}/{1}: {2}", "ステップ {0}/{1}：{2}", "단계 {0}/{1}: {2}", "Schritt {0}/{1}: {2}"], ["读取图片 / 线稿 / 规划", "Reading image / line art / planning", "画像読込 / 線画 / 計画", "이미지 읽기 / 선화 / 계획", "Bild lesen / Linien / Planung"], ["规划已用 {0}s", "planning {0}s", "計画 {0}s 経過", "계획 {0}s 경과", "Planung {0}s"], ["规划用时 {0}s", "planned in {0}s", "計画所要 {0}s", "계획 소요 {0}s", "Planung dauerte {0}s"], ["检查预览和指标，然后开始绘制", "Check the preview and metrics, then start drawing", "プレビューと指標を確認して描画を開始", "미리보기와 지표를 확인한 뒤 그리기를 시작하세요", "Vorschau und Kennzahlen prüfen, dann Zeichnen starten"], ["笔画正在写入游戏", "Strokes are being written into the game", "ストロークをゲームに書き込み中", "획을 게임에 기록하는 중", "Striche werden ins Spiel geschrieben"], ["（尚无日志）", "(no log yet)", "（ログなし）", "(로그 없음)", "(noch kein Protokoll)"], ["作业失败", "Job failed", "ジョブ失敗", "작업 실패", "Auftrag fehlgeschlagen"], ["绘制完成", "Drawing finished", "描画完了", "그리기 완료", "Zeichnung fertig"], ["预览已生成", "Preview generated", "プレビューを生成しました", "미리보기를 생성했습니다", "Vorschau erzeugt"], ["绘制完成。画布会继续实时刷新。", "Drawing finished. The canvas keeps refreshing live.", "描画完了。キャンバスは引き続きリアルタイムで更新されます。", "그리기가 끝났습니다. 캔버스는 계속 실시간으로 갱신됩니다.", "Zeichnung fertig. Die Fläche wird weiter live aktualisiert."], ["预览已就绪，可以开始绘制。", "Preview ready – you can start drawing.", "プレビュー完了。描画を開始できます。", "미리보기가 준비되었습니다. 그리기를 시작할 수 있습니다.", "Vorschau bereit – Zeichnen kann starten."], ["作业已取消", "Job cancelled", "ジョブをキャンセルしました", "작업이 취소되었습니다", "Auftrag abgebrochen"], ["作业已取消。", "Job cancelled.", "ジョブをキャンセルしました。", "작업이 취소되었습니다.", "Auftrag abgebrochen."], ["作业失败：{0}", "Job failed: {0}", "ジョブ失敗：{0}", "작업 실패: {0}", "Auftrag fehlgeschlagen: {0}"], ["未知错误", "Unknown error", "不明なエラー", "알 수 없는 오류", "Unbekannter Fehler"], ["已请求取消", "Cancel requested", "キャンセルを要求しました", "취소를 요청했습니다", "Abbruch angefordert"], ["取消失败：{0}", "Cancel failed: {0}", "キャンセル失敗：{0}", "취소 실패: {0}", "Abbruch fehlgeschlagen: {0}"], ["预览图加载失败", "Failed to load the preview image", "プレビュー画像の読み込みに失敗", "미리보기 이미지 로드 실패", "Vorschaubild konnte nicht geladen werden"], ["计算中…", "Computing…", "計算中…", "계산 중…", "Berechne…"], ["不可用", "unavailable", "利用不可", "사용 불가", "nicht verfügbar"], ["指标不可用", "Metrics unavailable", "指標を利用できません", "지표를 사용할 수 없음", "Kennzahlen nicht verfügbar"], ["暂无指标", "No metrics yet", "指標なし", "지표 없음", "Noch keine Kennzahlen"], ["操作", "Ops", "操作", "작업", "Ops"], ["笔号（压感）", "Pen size (pressure)", "ペン番号（筆圧）", "펜 번호 (필압)", "Stiftgröße (Druck)"], ["笔号", "Pen size", "ペン番号", "펜 번호", "Stiftgröße"], ["涂色笔画", "Colour strokes", "着色ストローク", "채색 획", "Farbstriche"], ["倒桶", "Bucket pours", "バケツ回数", "페인트통 사용", "Eimer-Füllungen"], ["预测漏色", "Predicted leaks", "予測される色漏れ", "예상 색 번짐", "Erwartete Lecks"], ["笔/分钟", "Strokes/min", "ストローク/分", "획/분", "Striche/Min."], ["预计", "Estimated", "予測", "예상", "Geschätzt"], ["覆盖率", "Coverage", "カバー率", "커버율", "Abdeckung"], ["外溢", "Overflow", "はみ出し", "넘침", "Überlauf"], ["颜色误差", "Colour error", "色誤差", "색 오차", "Farbfehler"], ["弯曲比", "Curvature ratio", "曲率比", "곡률비", "Krümmungsverhältnis"], ["警告", "Warning", "警告", "경고", "Warnung"], ["存在填充/长直线", "Fills / long straight lines present", "塗りつぶし／長い直線あり", "채우기/긴 직선 있음", "Füllungen / lange Geraden vorhanden"], ["载入作业图片失败：{0}", "Failed to load the job image: {0}", "ジョブ画像の読み込み失敗：{0}", "작업 이미지 로드 실패: {0}", "Auftragsbild konnte nicht geladen werden: {0}"], ["已载入作业 {0}", "Loaded job {0}", "ジョブ {0} を読み込みました", "작업 {0}을(를) 불러왔습니다", "Auftrag {0} geladen"], ["载入作业失败：{0}", "Failed to load job: {0}", "ジョブの読み込み失敗：{0}", "작업 로드 실패: {0}", "Auftrag konnte nicht geladen werden: {0}"], ["已恢复上次作业", "Restored the last job", "前回のジョブを復元しました", "지난 작업을 복원했습니다", "Letzter Auftrag wiederhergestellt"], ["清空画布上的所有图层？此操作会进入游戏的撤销栈。", "Clear all layers on the canvas? This goes onto the game's undo stack.", "キャンバス上の全レイヤーを消去しますか？ゲームの取り消し履歴に入ります。", "캔버스의 모든 레이어를 지울까요? 게임의 실행 취소 기록에 남습니다.", "Alle Ebenen der Zeichenfläche leeren? Das landet im Rückgängig-Verlauf des Spiels."], ["提交当前画布？", "Submit the current canvas?", "現在のキャンバスを提出しますか？", "현재 캔버스를 제출할까요?", "Aktuelle Zeichenfläche abgeben?"], ["已撤销", "Undone", "元に戻しました", "실행 취소됨", "Rückgängig gemacht"], ["已重做", "Redone", "やり直しました", "다시 실행됨", "Wiederholt"], ["已清空", "Cleared", "消去しました", "지워짐", "Geleert"], ["操作失败：{0}", "Operation failed: {0}", "操作に失敗：{0}", "작업 실패: {0}", "Vorgang fehlgeschlagen: {0}"], ["已导出 {0} 条笔画", "Exported {0} strokes", "{0} 本のストロークを書き出しました", "획 {0}개를 내보냈습니다", "{0} Striche exportiert"], ["导出失败：{0}", "Export failed: {0}", "書き出し失敗：{0}", "내보내기 실패: {0}", "Export fehlgeschlagen: {0}"], ["不是有效的 JSON 文件", "Not a valid JSON file", "有効な JSON ファイルではありません", "올바른 JSON 파일이 아닙니다", "Keine gültige JSON-Datei"], ["文件里没有笔画数据", "The file contains no stroke data", "ファイルにストロークデータがありません", "파일에 획 데이터가 없습니다", "Die Datei enthält keine Strichdaten"], ["文件里没有可用的笔画", "The file contains no usable strokes", "ファイルに使えるストロークがありません", "파일에 사용할 수 있는 획이 없습니다", "Die Datei enthält keine nutzbaren Striche"], ["把 {0} 条笔画恢复到当前画布？（不会先清空）", "Restore {0} strokes onto the current canvas? (it is not cleared first)", "{0} 本のストロークを現在のキャンバスに復元しますか？（先に消去はしません）", "획 {0}개를 현재 캔버스에 복원할까요? (먼저 지우지 않습니다)", "{0} Striche auf die aktuelle Fläche wiederherstellen? (sie wird nicht vorher geleert)"], ["正在恢复 {0} 笔…", "Restoring {0} strokes…", "{0} ストロークを復元中…", "획 {0}개 복원 중…", "Stelle {0} Striche wieder her…"], ["恢复完成：{0} 笔", "Restore finished: {0} strokes", "復元完了：{0} ストローク", "복원 완료: {0}획", "Wiederherstellung fertig: {0} Striche"], ["笔画已恢复。", "Strokes restored.", "ストロークを復元しました。", "획을 복원했습니다.", "Striche wiederhergestellt."], ["恢复失败：{0}", "Restore failed: {0}", "復元失敗：{0}", "복원 실패: {0}", "Wiederherstellung fehlgeschlagen: {0}"], ["设置已保存", "Settings saved", "設定を保存しました", "설정을 저장했습니다", "Einstellungen gespeichert"], ["绘制服务已重启", "Draw service restarted", "描画サービスを再起動しました", "그리기 서비스를 재시작했습니다", "Zeichendienst neu gestartet"], ["绘制服务仍未启动，请查看设置里的手动命令", "The draw service is still not running – see the manual command in Settings", "描画サービスがまだ起動していません。設定の手動コマンドを確認してください", "그리기 서비스가 아직 실행되지 않습니다. 설정의 수동 명령을 확인하세요", "Der Zeichendienst läuft noch nicht – siehe manuellen Befehl in den Einstellungen"], ["风格已更改", "style changed", "スタイルを変更", "스타일 변경됨", "Stil geändert"], ["时间设置已更改", "time setting changed", "時間設定を変更", "시간 설정 변경됨", "Zeiteinstellung geändert"], ["参数已更改", "options changed", "パラメータを変更", "매개변수 변경됨", "Parameter geändert"], ["绘制范围已更改", "drawing area changed", "描画範囲を変更", "그리기 범위 변경됨", "Zeichenbereich geändert"], ["预设已应用", "preset applied", "プリセットを適用", "프리셋 적용됨", "Voreinstellung angewendet"], ["作业进行中…", "Job in progress…", "ジョブ実行中…", "작업 진행 중…", "Auftrag läuft…"], ["先粘贴或选择一张图片。", "Paste or choose an image first.", "先に画像を貼り付けるか選択してください。", "먼저 이미지를 붙여넣거나 선택하세요.", "Zuerst ein Bild einfügen oder wählen."], ["绘制服务未连接。会在提交时自动尝试启动。", "The draw service is not connected. It will be started automatically on submit.", "描画サービス未接続。送信時に自動起動を試みます。", "그리기 서비스에 연결되지 않았습니다. 제출 시 자동으로 시작을 시도합니다.", "Zeichendienst nicht verbunden. Beim Senden wird ein Start versucht."], ["预览已就绪；开始绘制会复用这份计划。", "Preview ready; drawing will reuse this plan.", "プレビュー完了。描画はこの計画を再利用します。", "미리보기가 준비되었습니다. 그리기는 이 계획을 재사용합니다.", "Vorschau bereit; Zeichnen verwendet diesen Plan."], ["参数或选区已更改；开始绘制会重新规划。", "Options or region changed; drawing will re-plan.", "パラメータまたは範囲が変更されました。描画時に再計画します。", "매개변수 또는 영역이 바뀌어 그리기 시 다시 계획합니다.", "Parameter oder Bereich geändert; Zeichnen plant neu."], ["默认保留当前画布；“清空”需要手动勾选并确认。", "The canvas is kept by default; “Clear” must be ticked and confirmed manually.", "既定ではキャンバスを保持します。「消去」は手動でチェックして確認が必要です。", "기본적으로 캔버스를 유지합니다. “지우기”는 직접 체크하고 확인해야 합니다.", "Die Fläche bleibt standardmäßig erhalten; „Leeren“ muss angehakt und bestätigt werden."], ["绘制服务（本机 Python 渲染器）没有启动。风格预览和绘制需要它；游戏状态和画布仍然可用。", "The draw service (the local Python renderer) is not running. Previews and drawing need it; game status and canvas still work.", "描画サービス（ローカルの Python レンダラー）が起動していません。プレビューと描画に必要です。ゲーム状態とキャンバスは引き続き利用できます。", "그리기 서비스(로컬 Python 렌더러)가 실행 중이 아닙니다. 미리보기와 그리기에 필요하며 게임 상태와 캔버스는 계속 사용할 수 있습니다.", "Der Zeichendienst (lokaler Python-Renderer) läuft nicht. Vorschau und Zeichnen brauchen ihn; Spielstatus und Fläche funktionieren weiter."], ["重试启动", "Retry start", "起動を再試行", "시작 재시도", "Start erneut versuchen"], ["读取回合时间", "Reading round time", "ラウンド時間の取得", "라운드 시간 읽기", "Rundenzeit lesen"], ["读取图片", "Reading image", "画像の読み込み", "이미지 읽기", "Bild lesen"], ["Anime2Sketch 线稿推理", "Anime2Sketch line-art inference", "Anime2Sketch 線画推論", "Anime2Sketch 선화 추론", "Anime2Sketch-Linieninferenz"], ["anime-seg 主体分割", "anime-seg subject segmentation", "anime-seg 被写体分割", "anime-seg 피사체 분할", "anime-seg Motivsegmentierung"], ["整理线稿笔画", "Tidying line-art strokes", "線画ストロークの整理", "선화 획 정리", "Linienstriche aufbereiten"], ["提取调色板", "Extracting palette", "パレット抽出", "팔레트 추출", "Palette extrahieren"], ["规划填色多边形", "Planning colour polygons", "着色ポリゴンの計画", "채색 다각형 계획", "Farbpolygone planen"], ["规划阴影笔触", "Planning shading strokes", "陰影ストロークの計画", "음영 붓터치 계획", "Schattenstriche planen"], ["按时间裁剪计划", "Trimming the plan to fit the time", "時間に合わせて計画を調整", "시간에 맞게 계획 다듬기", "Plan an die Zeit anpassen"], ["渲染预览", "Rendering preview", "プレビュー描画", "미리보기 렌더링", "Vorschau rendern"], ["读取计划", "Reading plan", "計画の読み込み", "계획 읽기", "Plan lesen"], ["规划笔画", "Planning strokes", "ストロークの計画", "획 계획", "Striche planen"], ["关闭", "Off", "オフ", "끄기", "Aus"], ["关闭窗口", "Close", "閉じる", "닫기", "Schließen"]];
+const I18N_LANGS = [["zh", "中文"], ["en", "English"], ["ja", "日本語"], ["ko", "한국어"], ["de", "Deutsch"]];
+const I18N = { en: {}, ja: {}, ko: {}, de: {} };
+const I18N_PAT = { en: [], ja: [], ko: [], de: [] };
+(function buildI18n() {
+  const esc = s => s.replace(/[.*+?^$()|[\]\\]/g, "\\$&");
+  I18N_ROWS.forEach(row => {
+    ["en", "ja", "ko", "de"].forEach((lang, i) => {
+      const zh = row[0], out = row[i + 1];
+      if (/\{\d\}/.test(zh)) {
+        const re = new RegExp("^" + esc(zh).replace(/\{\d\}/g, "(.+?)") + "$", "s");
+        I18N_PAT[lang].push([re, out]);
+      } else I18N[lang][zh] = out;
+    });
+  });
+})();
+let LANG = "zh";
+try { LANG = localStorage.getItem("dgStudio.lang") || ""; } catch (e) { /* ignore */ }
+if (!I18N_LANGS.some(l => l[0] === LANG)) {
+  const nav = (navigator.language || "en").slice(0, 2).toLowerCase();
+  LANG = I18N_LANGS.some(l => l[0] === nav) ? nav : "en";
+}
+function tr(s) {
+  if (LANG === "zh" || !s || typeof s !== "string") return s;
+  const lead = s.match(/^\s*/)[0], trail = s.match(/\s*$/)[0];
+  const key = s.trim();
+  if (!key || !/[一-鿿⌘⇧]/.test(key)) return s;
+  const out = trKey(key);
+  return out === key ? s : lead + out + trail;
+}
+function trKey(key) {
+  const d = I18N[LANG];
+  if (Object.prototype.hasOwnProperty.call(d, key)) return d[key];
+  for (const [re, tpl] of I18N_PAT[LANG]) {
+    const m = key.match(re);
+    if (m) return tpl.replace(/\{(\d)\}/g, (_, i) => trKey((m[+i + 1] || "").trim()));
+  }
+  if (key.includes(" · ")) {
+    const parts = key.split(" · ").map(trKey);
+    return parts.join(" · ");
+  }
+  return key;
+}
+const I18N_ATTRS = ["placeholder", "title", "aria-label", "alt"];
+function i18nSkip(node) {
+  const p = node.nodeType === 3 ? node.parentElement : node;
+  return !p || !!p.closest("script,style,pre,code,[data-i18n-html],#langSel option");
+}
+function i18nText(n) {
+  if (i18nSkip(n)) return;
+  const v = n.nodeValue;
+  if (n.__t === undefined || n.__t !== v) n.__zh = v;
+  const out = tr(n.__zh);
+  n.__t = out;
+  if (out !== v) n.nodeValue = out;
+}
+function i18nAttrs(el) {
+  if (!el.getAttribute || i18nSkip(el)) return;
+  el.__za = el.__za || {};
+  el.__ta = el.__ta || {};
+  I18N_ATTRS.forEach(a => {
+    if (!el.hasAttribute(a)) return;
+    const v = el.getAttribute(a);
+    if (el.__ta[a] !== v) el.__za[a] = v;
+    const out = tr(el.__za[a]);
+    el.__ta[a] = out;
+    if (out !== v) el.setAttribute(a, out);
+  });
+}
+function i18nWalk(root) {
+  if (root.nodeType === 3) { i18nText(root); return; }
+  if (root.nodeType !== 1) return;
+  i18nAttrs(root);
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  let n;
+  while ((n = w.nextNode())) n.nodeType === 3 ? i18nText(n) : i18nAttrs(n);
+}
+function i18nHtml() {
+  document.querySelectorAll("[data-i18n-html]").forEach(el => {
+    if (el.__zhHtml === undefined) el.__zhHtml = el.innerHTML.trim();
+    el.innerHTML = tr(el.__zhHtml);
+  });
+}
+function applyLang(lang) {
+  LANG = lang;
+  try { localStorage.setItem("dgStudio.lang", lang); } catch (e) { /* ignore */ }
+  document.documentElement.lang = lang === "zh" ? "zh-CN" : lang;
+  i18nWalk(document.body);
+  i18nHtml();
+}
+(function initI18n() {
+  const sel = document.getElementById("langSel");
+  I18N_LANGS.forEach(([code, name]) => {
+    const o = document.createElement("option");
+    o.value = code; o.textContent = name; sel.appendChild(o);
+  });
+  sel.value = LANG;
+  sel.addEventListener("change", () => applyLang(sel.value));
+  const nativeConfirm = window.confirm.bind(window);
+  window.confirm = msg => nativeConfirm(tr(msg));
+  applyLang(LANG);
+  new MutationObserver(records => {
+    for (const r of records) {
+      if (r.type === "characterData") i18nText(r.target);
+      else if (r.type === "attributes") i18nAttrs(r.target);
+      else r.addedNodes.forEach(i18nWalk);
+    }
+  }).observe(document.body, { subtree: true, childList: true, characterData: true,
+    attributes: true, attributeFilter: I18N_ATTRS });
+})();
+
+// ---------------------------------------------------------------------------
+// state
+// ---------------------------------------------------------------------------
+const LS = "dgStudio.v1";
+const STYLE_INFO = {
+  anime_study: { desc: "主体去背景、少色、粗笔蛇形涂色，最后勾线。无填充。", time: 180, colors: null },
+  anime_human: { desc: "像人一样画：先线稿，每笔压感粗细不同，真人节奏；颜色用画笔画在线稿下面的虚拟图层上（插件支持时，否则用油漆桶）；有无压感都能用。", time: 120, colors: null },
+  anime_flat: { desc: "分色块 + 单中心线，适合平涂插画。", time: 120, colors: 24 },
+  sketch: { desc: "中心线、排线和少量颜色点缀。", time: 90, colors: 8 },
+  impasto: { desc: "多层曲线笔触，厚涂质感。", time: 180, colors: 24 },
+  watercolor: { desc: "浅色块、留白和细线，水彩/马克笔感。", time: 120, colors: 8 },
+};
+
+const app = {
+  bridgeBase: location.protocol.startsWith("http") ? "" : "http://127.0.0.1:8765",
+  studioBase: "http://127.0.0.1:8770",
+  studioPort: 8770,
+  token: "",
+  bridgeOnline: false,
+  studioOnline: false,
+  studioHealth: null,
+  game: null,
+  lines: [],
+  aspect: 16 / 9,
+  worldWidth: 17.7778,
+  imageDataUrl: null,
+  imageBlob: null,
+  imageName: "",
+  imageToken: 0,
+  imageWidth: 0,
+  imageHeight: 0,
+  settings: {
+    style: "anime_study",
+    timeMode: "auto",
+    time: 180,
+    colors: null,
+    maxStrokes: null,
+    seed: 7,
+    margin: 0.04,
+    maxDim: null,
+    studyPause: 0.26,
+    studySpeed: 0.9,
+    lineart: "auto",
+    pace: "slow",
+    lineartDevice: "auto",
+    force: false,
+    pen: "auto", colour: "auto", humanPressure: 1, humanSkill: 2.3, softenFrame: "auto",
+    gameFps: null, borders: true, lineartThreshold: null, maxRegions: null, lineColor: "",
+    fillMode: "auto", fillWhite: false, baseFill: true, outlines: true,
+    clear: false,
+    autoPlan: true,
+    range: "full",
+    region: { x: 0.15, y: 0.15, w: 0.7, h: 0.7 },
+  },
+  planJob: null,
+  planSnapshot: null,
+  planStale: false,
+  activeJob: null,
+  jobs: [],
+  metrics: null,
+  metricsLoading: false,
+  metricsStyle: "",
+  tab: "canvas",
+  stageImage: null,
+  previewImage: null,
+  stageChoice: null,
+  regionDrag: null,
+  timers: {},
+  restoring: false,
+  previewUrl: null,
+  autoTabJob: null,
+  suppressAutoPlan: false,
+  busyFlag: false,
+  hintLock: 0,
+  bannerKind: "",
+  lastJobId: null,
+};
+
+const $ = (selector, root = document) => root.querySelector(selector);
+const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(LS) || "{}");
+    if (saved.token) app.token = saved.token;
+    if (saved.studioPort) app.studioPort = Number(saved.studioPort) || 8770;
+    if (saved.settings) {
+      app.settings = { ...app.settings, ...saved.settings };
+      app.settings.region = { ...{ x: .15, y: .15, w: .7, h: .7 }, ...(saved.settings.region || {}) };
+    }
+    if (saved.lastJobId) app.lastJobId = saved.lastJobId;
+  } catch (_) { /* ignore corrupt storage */ }
+  app.studioBase = `http://127.0.0.1:${app.studioPort}`;
+}
+
+function saveSettings() {
+  const snapshot = { ...app.settings, region: { ...app.settings.region } };
+  try {
+    localStorage.setItem(LS, JSON.stringify({
+      token: app.token,
+      studioPort: app.studioPort,
+      settings: snapshot,
+      lastJobId: app.activeJob?.id || app.planJob?.id || app.lastJobId || null,
+    }));
+  } catch (_) { /* private mode / quota */ }
+}
+
+// ---------------------------------------------------------------------------
+// tiny UI helpers
+// ---------------------------------------------------------------------------
+function toast(message, kind = "") {
+  const node = document.createElement("div");
+  node.className = "toast " + kind;
+  node.textContent = message;
+  $("#toasts").appendChild(node);
+  setTimeout(() => {
+    node.style.opacity = "0";
+    node.style.transition = "opacity .25s";
+    setTimeout(() => node.remove(), 260);
+  }, kind === "bad" ? 6000 : 3800);
+}
+
+function setPill(id, state, text) {
+  const pill = $(id);
+  pill.classList.remove("ok", "warn", "bad");
+  if (state) pill.classList.add(state);
+  const label = pill.querySelector("span");
+  if (label && text) label.textContent = text;
+}
+
+function fmtTime(seconds) {
+  if (seconds == null || !Number.isFinite(seconds)) return "--:--";
+  const total = Math.max(0, Math.ceil(seconds));
+  const m = Math.floor(total / 60);
+  const s = total % 60;
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+function fmtAge(epoch) {
+  const delta = Math.max(0, Date.now() / 1000 - Number(epoch || 0));
+  if (delta < 60) return `${Math.floor(delta)} 秒前`;
+  if (delta < 3600) return `${Math.floor(delta / 60)} 分钟前`;
+  return new Date(Number(epoch) * 1000).toLocaleString();
+}
+
+function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;",
+  }[ch]));
+}
+
+function round6(value) { return Math.round(value * 1e6) / 1e6; }
+
+// ---------------------------------------------------------------------------
+// HTTP
+// ---------------------------------------------------------------------------
+async function bridge(path, options = {}) {
+  const headers = { Accept: "application/json", ...(options.headers || {}) };
+  if (app.token) headers["X-Api-Key"] = app.token;
+  if (options.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
+  let response;
+  try {
+    response = await fetch(app.bridgeBase + path, { ...options, headers });
+  } catch (error) {
+    app.bridgeOnline = false;
+    updatePills();
+    throw new Error("无法连接桥接 127.0.0.1:8765");
+  }
+  let data = null;
+  try { data = await response.json(); } catch (_) { /* empty */ }
+  if (!response.ok || (data && data.ok === false)) {
+    throw new Error((data && data.error) || `HTTP ${response.status}`);
+  }
+  return data && Object.prototype.hasOwnProperty.call(data, "result") ? data.result : data;
+}
+
+async function studio(path, options = {}) {
+  let response;
+  try {
+    response = await fetch(app.studioBase + path, options);
+  } catch (error) {
+    app.studioOnline = false;
+    updatePills();
+    throw new Error("无法连接绘制服务 " + app.studioBase);
+  }
+  let data = null;
+  try { data = await response.json(); } catch (_) { /* empty */ }
+  if (!response.ok || (data && data.ok === false)) {
+    throw new Error((data && data.error) || `HTTP ${response.status}`);
+  }
+  return data;
+}
+
+async function fetchGame() {
+  try {
+    return await bridge("/api/v1/game");
+  } catch (error) {
+    const [state, round] = await Promise.all([
+      bridge("/api/v1/state"),
+      bridge("/api/v1/round").catch(() => ({})),
+    ]);
+    state.round = round;
+    return state;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// studio discovery
+// ---------------------------------------------------------------------------
+async function discoverStudio({ start = true, wait = 12000 } = {}) {
+  let info = null;
+  try {
+    info = await bridge("/api/v1/studio");
+    if (info && info.port) app.studioPort = Number(info.port) || app.studioPort;
+  } catch (_) { /* old plugin or bridge down */ }
+  app.studioBase = `http://127.0.0.1:${app.studioPort}`;
+
+  if (await health()) return true;
+  if (start) {
+    try {
+      await bridge("/api/v1/studio/start", { method: "POST", body: "{}" });
+    } catch (error) {
+      showBanner("绘制服务未启动：" + error.message
+        + "。可在设置里手动启动，或检查 BepInEx [Studio] 配置。", "打开设置", openSettings, "studio");
+    }
+  }
+  const deadline = Date.now() + wait;
+  while (Date.now() < deadline) {
+    if (await health()) return true;
+    await delay(700);
+  }
+  return false;
+}
+
+async function health() {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 1200);
+    const response = await fetch(app.studioBase + "/health", { signal: controller.signal });
+    clearTimeout(timer);
+    if (!response.ok) return false;
+    const data = await response.json();
+    app.studioOnline = !!data.ok;
+    app.studioHealth = data;
+    updatePills();
+    return app.studioOnline;
+  } catch (_) {
+    app.studioOnline = false;
+    updatePills();
+    return false;
+  }
+}
+
+function showBanner(text, actionLabel = "重试", action = () => discoverStudio(), kind = "general") {
+  app.bannerKind = kind;
+  $("#bannerText").textContent = text;
+  $("#banner").classList.remove("hidden");
+  const button = $("#bannerAction");
+  button.textContent = actionLabel;
+  button.onclick = action;
+}
+
+function hideBanner(kind = null) {
+  if (kind && app.bannerKind !== kind) return;
+  $("#banner").classList.add("hidden");
+  app.bannerKind = "";
+}
+
+function updatePills() {
+  setPill("#bridgePill", app.bridgeOnline ? "ok" : "bad",
+    app.bridgeOnline ? "桥接在线" : "桥接离线");
+  setPill("#studioPill", app.studioOnline ? "ok" : "bad",
+    app.studioOnline ? "绘制服务在线" : "绘制服务离线");
+  const game = app.game;
+  let state = "", label = "游戏";
+  if (!game || game.available === false) { state = "bad"; label = "未进入画布"; }
+  else if (game.canDraw) {
+    state = "ok";
+    label = game.word ? "可绘制 · " + game.word : "可绘制";
+  } else { state = "warn"; label = "等待回合"; }
+  setPill("#gamePill", state, label);
+}
+
+// ---------------------------------------------------------------------------
+// live game
+// ---------------------------------------------------------------------------
+async function tickGame() {
+  try {
+    const game = await fetchGame();
+    const previousAspect = app.aspect;
+    app.game = game;
+    app.bridgeOnline = true;
+    const canvas = game.canvas || {};
+    if (canvas.aspect && Number(canvas.aspect) > 0.4) app.aspect = Number(canvas.aspect);
+    if (canvas.width && Number(canvas.width) > 0) app.worldWidth = Number(canvas.width);
+    renderGamePanel();
+    updatePills();
+    hideBanner("bridge");
+    if (Math.abs(previousAspect - app.aspect) > 1e-4) scheduleStageRender();
+  } catch (error) {
+    app.bridgeOnline = false;
+    updatePills();
+    showBanner("无法连接游戏桥接（127.0.0.1:8765）。确认游戏已启动、BepInEx 插件已加载，并且已经进入 Sketchbook 或绘画回合。",
+      "重试", tickGame, "bridge");
+  }
+  app.timers.game = setTimeout(tickGame, app.game && app.game.canDraw ? 1000 : 1600);
+}
+
+function renderGamePanel() {
+  const game = app.game || {};
+  const round = game.round || {};
+  const recommended = round.recommended || null;
+  const timerEl = $("#timer");
+  if (recommended && recommended.active && Number(recommended.remaining) > 0) {
+    const remaining = Number(recommended.remaining);
+    timerEl.textContent = fmtTime(remaining);
+    timerEl.classList.toggle("low", remaining <= 30);
+    timerEl.classList.remove("none");
+  } else {
+    timerEl.textContent = "无计时器";
+    timerEl.classList.add("none");
+    timerEl.classList.remove("low");
+  }
+  $("#word").textContent = game.word || "—";
+  $("#prevWord").textContent = game.previousWord || "—";
+  $("#roundText").textContent = game.roundText || "—";
+  const history = Array.isArray(game.wordHistory) ? game.wordHistory.slice(0, 6) : [];
+  $("#wordHistory").innerHTML = history.map(item =>
+    `<span class="chip">${escapeHtml(item.word || "")}</span>`).join("");
+  const status = [];
+  if (game.available === false) status.push("无绘制模块");
+  if (game.canDraw) status.push("可绘制");
+  else if (game.available) status.push("等待");
+  if (game.submitted) status.push("已提交");
+  if (game.isActive) status.push("回合中");
+  $("#gameStatus").textContent = status.join(" · ") || "—";
+  $("#tool").textContent = game.tool || "—";
+  $("#color").textContent = game.color || "—";
+  $("#brush").textContent = game.brushSize ?? "—";
+  $("#lineCount").textContent = game.lines ?? "—";
+  $("#canvasBadge").textContent = game.available
+    ? `${game.module || "canvas"} · ${game.lines ?? 0} 元素`
+    : "未进入画布";
+  if (game.layers && Number.isFinite(Number(game.layers.selected))) {
+    $("#tool").title = `图层 ${Number(game.layers.selected) + 1}/${game.layers.total}`;
+  }
+  const auto = app.settings.timeMode === "auto";
+  $("#timeHint").textContent = auto
+    ? (recommended ? `自动 · ${fmtTime(recommended.remaining)}` : "自动 · 无计时器")
+    : "手动";
+  updateActionHint();
+}
+
+async function tickLines() {
+  if (app.bridgeOnline) {
+    try {
+      const result = await bridge("/api/v1/lines?limit=10000");
+      const lines = Array.isArray(result.lines) ? result.lines : [];
+      lines.sort((a, b) => (Number(a.layer) || 0) - (Number(b.layer) || 0)
+        || (Number(a.sortingOrder) || 0) - (Number(b.sortingOrder) || 0));
+      app.lines = lines;
+      if (app.tab === "canvas") scheduleStageRender();
+      $("#lineCount").textContent = app.lines.length;
+    } catch (_) { /* keep the last frame */ }
+  }
+  const busy = isBusyState();
+  app.timers.lines = setTimeout(tickLines, busy ? 800 : 1800);
+}
+
+// ---------------------------------------------------------------------------
+// images
+// ---------------------------------------------------------------------------
+function handleImageFile(file) {
+  if (!file) return Promise.resolve(false);
+  if (!file.type.startsWith("image/")) {
+    toast("请选择图片文件", "bad");
+    return Promise.resolve(false);
+  }
+  if (file.size > 24 * 1024 * 1024) {
+    toast("图片超过 24 MB", "bad");
+    return Promise.resolve(false);
+  }
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || "");
+      const image = new Image();
+      image.onload = () => {
+        app.imageDataUrl = dataUrl;
+        app.imageBlob = file;
+        app.imageName = file.name || "clipboard.png";
+        app.imageToken += 1;
+        app.imageWidth = image.naturalWidth;
+        app.imageHeight = image.naturalHeight;
+        $("#sourceImg").src = dataUrl;
+        $("#sourceImg").classList.remove("hidden");
+        $("#dropPlaceholder").classList.add("hidden");
+        $("#clearImage").classList.remove("hidden");
+        $("#sourceMeta").classList.remove("hidden");
+        $("#sourceName").textContent = app.imageName;
+        $("#sourceSize").textContent =
+          `${app.imageWidth}×${app.imageHeight} · ${(file.size / 1024 / 1024).toFixed(1)} MB`;
+        $("#imageHint").textContent = "图片已载入。检查风格和选区后生成预览。";
+        invalidatePlan("图片已更换");
+        saveSettings();
+        if (!app.suppressAutoPlan && app.settings.autoPlan
+            && app.studioOnline && !isBusyState()) {
+          setTimeout(() => {
+            if (!isBusyState() && app.imageDataUrl && app.settings.autoPlan) {
+              createJob("plan");
+            }
+          }, 350);
+        }
+        resolve(true);
+      };
+      image.onerror = () => {
+        toast("无法读取这张图片", "bad");
+        resolve(false);
+      };
+      image.src = dataUrl;
+    };
+    reader.onerror = () => {
+      toast("读取图片失败", "bad");
+      resolve(false);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function clearImage() {
+  app.imageDataUrl = null;
+  app.imageBlob = null;
+  app.imageName = "";
+  app.imageToken += 1;
+  $("#sourceImg").classList.add("hidden");
+  $("#sourceImg").removeAttribute("src");
+  $("#dropPlaceholder").classList.remove("hidden");
+  $("#clearImage").classList.add("hidden");
+  $("#sourceMeta").classList.add("hidden");
+  $("#imageHint").textContent = "尚未选择图片。粘贴后可直接预览或绘制。";
+  invalidatePlan("图片已移除");
+}
+
+async function readClipboardImage() {
+  try {
+    if (!navigator.clipboard || !navigator.clipboard.read) {
+      throw new Error("当前浏览器不支持读取剪贴板");
+    }
+    const items = await navigator.clipboard.read();
+    for (const item of items) {
+      const type = item.types.find(value => value.startsWith("image/"));
+      if (!type) continue;
+      const blob = await item.getType(type);
+      return new File([blob], "clipboard." + (type.split("/")[1] || "png"), { type });
+    }
+    toast("剪贴板里没有图片。可以先截图或复制一张图，然后按 ⌘V。", "bad");
+  } catch (error) {
+    toast("无法读取剪贴板：" + (error.message || error) + "。请直接按 ⌘V 粘贴。", "bad");
+  }
+  return null;
+}
+
+async function doPaste() {
+  const file = await readClipboardImage();
+  if (!file) return null;
+  const ok = await handleImageFile(file);
+  return ok ? file : null;
+}
+
+async function pasteAnd(mode) {
+  app.suppressAutoPlan = true;
+  try {
+    const file = await doPaste();
+    if (!file) return;
+    if (mode === "draw") await createJob("draw");
+    else await createJob("plan");
+  } finally {
+    app.suppressAutoPlan = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// settings form
+// ---------------------------------------------------------------------------
+const EXTRA_FIELDS = [
+  // [setting, element id, option key, kind]
+  ["pen", "pen", "pen", "text"], ["colour", "colour", "colour", "text"],
+  ["humanPressure", "humanPressure", "human_pressure", "num"],
+  ["humanSkill", "humanSkill", "human_skill", "num"],
+  ["softenFrame", "softenFrame", "soften_frame", "text"],
+  ["gameFps", "gameFps", "game_fps", "numOrNull"],
+  ["borders", "borders", "borders", "bool"],
+  ["lineartThreshold", "lineartThreshold", "lineart_threshold", "intOrNull"],
+  ["maxRegions", "maxRegions", "max_regions", "intOrNull"],
+  ["lineColor", "lineColor", "line_color", "text"],
+  ["fillMode", "fillMode", "fill_mode", "text"],
+  ["fillWhite", "fillWhite", "fill_white", "bool"],
+  ["baseFill", "baseFill", "base_fill", "bool"],
+  ["outlines", "outlines", "outlines", "bool"],
+];
+
+function bindExtra() {
+  for (const [key, id, , kind] of EXTRA_FIELDS) {
+    const value = app.settings[key];
+    if (kind === "bool") $("#" + id).checked = !!value;
+    else $("#" + id).value = value ?? "";
+  }
+}
+
+function readExtra() {
+  const s = app.settings;
+  for (const [key, id, , kind] of EXTRA_FIELDS) {
+    const node = $("#" + id);
+    const raw = kind === "bool" ? node.checked : node.value;
+    if (kind === "bool") s[key] = !!raw;
+    else if (kind === "text") s[key] = String(raw).trim();
+    else if (raw === "") s[key] = kind === "num" ? s[key] : null;
+    else s[key] = Number(raw) || (kind === "num" ? s[key] : null);
+  }
+  s.humanPressure = clamp(s.humanPressure, 0.3, 3);
+  s.humanSkill = clamp(s.humanSkill, 0.4, 3.5);
+}
+
+function extraOptions() {
+  const out = {};
+  for (const [key, , option] of EXTRA_FIELDS) out[option] = app.settings[key];
+  return out;
+}
+
+function applyExtraOptions(options) {
+  for (const [key, , option] of EXTRA_FIELDS) {
+    if (options[option] !== undefined && options[option] !== null) app.settings[key] = options[option];
+  }
+}
+
+function bindForm() {
+  const s = app.settings;
+  $("#style").value = s.style;
+  $("#timeMode").querySelectorAll("button").forEach(button =>
+    button.classList.toggle("active", button.dataset.mode === s.timeMode));
+  $("#time").value = s.time;
+  $("#time").disabled = s.timeMode === "auto";
+  $("#colors").value = s.colors ?? "";
+  $("#maxStrokes").value = s.maxStrokes ?? "";
+  $("#seed").value = s.seed;
+  $("#studyPause").value = s.studyPause;
+  $("#studySpeed").value = s.studySpeed;
+  $("#margin").value = s.margin;
+  $("#maxDim").value = s.maxDim == null ? "" : s.maxDim;
+  $("#lineart").value = s.lineart;
+  $("#pace").value = s.pace;
+  $("#lineartDevice").value = s.lineartDevice;
+  $("#force").checked = !!s.force;
+  bindExtra();
+  $("#clearChk").checked = !!s.clear;
+  $("#autoPlanChk").checked = !!s.autoPlan;
+  $("#rangeMode").querySelectorAll("button").forEach(button =>
+    button.classList.toggle("active", button.dataset.range === s.range));
+  $("#regionFields").classList.toggle("hidden", s.range !== "region");
+  $("#regionRow").classList.toggle("hidden", s.range !== "region");
+  $("#regionX").value = s.region.x.toFixed(3);
+  $("#regionY").value = s.region.y.toFixed(3);
+  $("#regionW").value = s.region.w.toFixed(3);
+  $("#regionH").value = s.region.h.toFixed(3);
+  $("#stageWrap").classList.toggle("region-mode", s.range === "region");
+  updateStyleDesc();
+  updateRangeHint();
+  updateActionHint();
+}
+
+function readForm() {
+  const s = app.settings;
+  s.style = $("#style").value;
+  s.timeMode = $("#timeMode button.active")?.dataset.mode || "auto";
+  s.time = clamp(Number($("#time").value) || 180, 3, 3600);
+  s.colors = $("#colors").value === ""
+    ? null : clamp(Math.round(Number($("#colors").value) || 6), 2, 64);
+  s.maxStrokes = $("#maxStrokes").value === ""
+    ? null : clamp(Math.round(Number($("#maxStrokes").value) || 900), 1, 6000);
+  s.seed = Math.max(0, Math.round(Number($("#seed").value) || 7));
+  s.studyPause = clamp(Number($("#studyPause").value) || 0, 0, 5);
+  s.studySpeed = clamp(Number($("#studySpeed").value) || 0, 0, 5);
+  s.margin = clamp(Number($("#margin").value) || 0, 0, 0.3);
+  s.maxDim = $("#maxDim").value === "" ? null : clamp(Math.round(Number($("#maxDim").value) || 900), 200, 2000);
+  s.lineart = $("#lineart").value;
+  s.pace = $("#pace").value;
+  s.lineartDevice = $("#lineartDevice").value;
+  s.force = $("#force").checked;
+  readExtra();
+  s.clear = $("#clearChk").checked;
+  s.autoPlan = $("#autoPlanChk").checked;
+  s.range = $("#rangeMode button.active")?.dataset.range || "full";
+  updateStyleDesc();
+  updateRangeHint();
+  saveSettings();
+  updateActionHint();
+}
+
+function updateStyleDesc() {
+  const info = STYLE_INFO[app.settings.style] || STYLE_INFO.anime_study;
+  $("#styleDesc").textContent = info.desc;
+  const study = app.settings.style === "anime_study";
+  $("#studyPause").closest("label").style.opacity = study ? "1" : ".45";
+  $("#studySpeed").closest("label").style.opacity = study ? "1" : ".45";
+  $("#humanOpts").style.opacity = app.settings.style === "anime_human" ? "1" : ".45";
+}
+
+function updateRangeHint() {
+  const region = app.settings.region;
+  if (app.settings.range === "region") {
+    $("#rangeHint").textContent =
+      `只在选区内绘制：x=${(region.x * 100).toFixed(0)}% y=${(region.y * 100).toFixed(0)}% ` +
+      `宽=${(region.w * 100).toFixed(0)}% 高=${(region.h * 100).toFixed(0)}%（左下角为原点）。` +
+      "在中间画布上拖动可重新框选。";
+  } else {
+    $("#rangeHint").textContent = "图片适配整个画布（按比例，保留边距）。";
+  }
+  $("#stageWrap").classList.toggle("region-mode", app.settings.range === "region");
+}
+
+function currentRegion() {
+  if (app.settings.range !== "region") return null;
+  const r = app.settings.region;
+  return [round6(r.x), round6(r.y), round6(r.w), round6(r.h)];
+}
+
+function setRegion(region, { persist = true, render = true } = {}) {
+  const r = { ...app.settings.region, ...region };
+  r.w = clamp(Number(r.w) || 0.02, 0.02, 1);
+  r.h = clamp(Number(r.h) || 0.02, 0.02, 1);
+  r.x = clamp(Number(r.x) || 0, 0, 1 - r.w);
+  r.y = clamp(Number(r.y) || 0, 0, 1 - r.h);
+  app.settings.region = r;
+  $("#regionX").value = r.x.toFixed(3);
+  $("#regionY").value = r.y.toFixed(3);
+  $("#regionW").value = r.w.toFixed(3);
+  $("#regionH").value = r.h.toFixed(3);
+  updateRangeHint();
+  if (persist) saveSettings();
+  if (render) scheduleStageRender();
+}
+
+function buildOptions() {
+  const s = app.settings;
+  return {
+    style: s.style,
+    time: s.timeMode === "manual" ? Number(s.time) : null,
+    default_time: 180,
+    colors: s.colors,
+    max_strokes: s.maxStrokes,
+    study_pause: s.studyPause,
+    study_speed: s.studySpeed,
+    seed: s.seed,
+    margin: s.margin,
+    max_dim: s.maxDim,
+    lineart: s.lineart,
+    pace: s.pace,
+    lineart_device: s.lineartDevice,
+    canvas_aspect: app.aspect,
+    force: !!s.force,
+    ...extraOptions(),
+  };
+}
+
+function planKey() {
+  return JSON.stringify({ image: app.imageToken, options: buildOptions(), region: currentRegion() });
+}
+
+function invalidatePlan(reason) {
+  if (!app.planJob && !app.planSnapshot) return;
+  app.planStale = true;
+  $("#staleBadge").classList.remove("hidden");
+  if (reason) setHint(reason + "；旧预览已过期，绘制时会重新规划。", 5000);
+}
+
+function setHint(text, lockMs = 0) {
+  $("#actionHint").textContent = text;
+  app.hintLock = lockMs > 0 ? Date.now() + lockMs : 0;
+}
+
+function isBusyState() {
+  if (app.busyFlag) return true;
+  const job = app.activeJob;
+  if (!job) return false;
+  if (["queued", "planning", "drawing"].includes(job.status)) return true;
+  return job.status === "planned" && job.mode === "draw";
+}
+
+// ---------------------------------------------------------------------------
+// stage rendering
+// ---------------------------------------------------------------------------
+let renderQueued = false;
+function scheduleStageRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    renderStage();
+  });
+}
+
+function sizeCanvas() {
+  const canvas = $("#stage");
+  const wrap = $("#stageWrap");
+  const width = wrap.clientWidth;
+  if (!width) return { canvas, ctx: null, width: 0, height: 0 };
+  const height = Math.max(120, Math.round(width / app.aspect));
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
+  canvas.style.width = width + "px";
+  canvas.style.height = height + "px";
+  wrap.style.aspectRatio = String(app.aspect);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { canvas, ctx, width, height };
+}
+
+function renderStage() {
+  const { ctx, width, height } = sizeCanvas();
+  if (!ctx) return;
+  $("#stageCorner").textContent =
+    `${app.aspect.toFixed(3)} · ${app.settings.range === "region" ? "选区" : "全屏"}`;
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, width, height);
+  let drew = false;
+  if (app.tab === "canvas") {
+    drew = drawLines(ctx, width, height);
+  } else if (app.tab === "preview") {
+    drew = drawImageCover(ctx, app.previewImage, width, height);
+  } else if (app.tab === "stage") {
+    drew = drawImageCover(ctx, app.stageChoice || app.previewImage, width, height);
+  }
+  if (app.settings.range === "region") drawRegionOverlay(ctx, width, height);
+  $("#stageEmpty").classList.toggle("hidden", drew);
+  if (!drew) {
+    $("#stageEmpty").textContent = app.tab === "canvas"
+      ? (app.settings.range === "region"
+        ? "拖动画布框选绘制区域；这里会显示游戏画布。"
+        : "游戏画布还没有笔画，或尚未连接。")
+      : "还没有计划预览。先选择图片并生成预览。";
+  }
+}
+
+function drawLines(ctx, width, height) {
+  if (!app.lines.length) return false;
+  const world = app.worldWidth || app.aspect * 10;
+  const scale = width / (100 * world);
+  for (const line of app.lines) {
+    const points = line.points || [];
+    if (!points.length) continue;
+    const color = line.color || "#000000";
+    const size = Math.max(1, Number(line.size) || 8);
+    const lineWidth = Math.max(1, size * scale);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = lineWidth;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (line.type === 3 && points.length >= 3) {
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = point[0] * width;
+        const y = (1 - point[1]) * height;
+        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.closePath();
+      ctx.fill();
+    } else if (line.type === 1) {
+      const x = points[0][0] * width;
+      const y = (1 - points[0][1]) * height;
+      ctx.beginPath();
+      ctx.arc(x, y, lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (points.length >= 2) {
+      ctx.beginPath();
+      points.forEach((point, index) => {
+        const x = point[0] * width;
+        const y = (1 - point[1]) * height;
+        if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+  }
+  return true;
+}
+
+function drawImageCover(ctx, image, width, height) {
+  if (!image || !image.complete || !image.naturalWidth) return false;
+  ctx.drawImage(image, 0, 0, width, height);
+  return true;
+}
+
+function drawRegionOverlay(ctx, width, height) {
+  const r = app.settings.region;
+  const x = r.x * width;
+  const y = (1 - r.y - r.h) * height;
+  const w = r.w * width;
+  const h = r.h * height;
+  ctx.save();
+  ctx.fillStyle = "rgba(8, 12, 18, .42)";
+  ctx.fillRect(0, 0, width, y);
+  ctx.fillRect(0, y + h, width, height - y - h);
+  ctx.fillRect(0, y, x, h);
+  ctx.fillRect(x + w, y, width - x - w, h);
+  ctx.strokeStyle = "rgba(110, 168, 254, .95)";
+  ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.strokeRect(x + .5, y + .5, Math.max(0, w - 1), Math.max(0, h - 1));
+  ctx.setLineDash([]);
+  ctx.fillStyle = "rgba(110, 168, 254, .28)";
+  for (const [cx, cy] of [[x, y], [x + w, y], [x, y + h], [x + w, y + h]]) {
+    ctx.fillRect(cx - 3, cy - 3, 6, 6);
+  }
+  ctx.font = "11px ui-monospace, monospace";
+  const label = `${Math.round(r.w * 100)}% × ${Math.round(r.h * 100)}%`;
+  const tx = clamp(x + 8, 4, width - 90);
+  const ty = clamp(y + 16, 14, height - 8);
+  ctx.fillStyle = "rgba(8, 10, 14, .72)";
+  ctx.fillRect(tx - 4, ty - 12, ctx.measureText(label).width + 10, 17);
+  ctx.fillStyle = "#e6f0ff";
+  ctx.fillText(label, tx + 1, ty);
+  ctx.restore();
+}
+
+function stagePointToRegion(x, y, width, height) {
+  return {
+    x: clamp(x / width, 0, 1),
+    y: clamp(1 - y / height, 0, 1),
+  };
+}
+
+function bindStageDrag() {
+  const canvas = $("#stage");
+  canvas.addEventListener("pointerdown", event => {
+    if (app.settings.range !== "region") return;
+    const rect = canvas.getBoundingClientRect();
+    const start = stagePointToRegion(event.clientX - rect.left, event.clientY - rect.top,
+      rect.width, rect.height);
+    app.regionDrag = { start, rect };
+    canvas.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+  canvas.addEventListener("pointermove", event => {
+    if (!app.regionDrag) return;
+    const { start, rect } = app.regionDrag;
+    const point = stagePointToRegion(event.clientX - rect.left, event.clientY - rect.top,
+      rect.width, rect.height);
+    const x = Math.min(start.x, point.x);
+    const y = Math.min(start.y, point.y);
+    const w = Math.abs(point.x - start.x);
+    const h = Math.abs(point.y - start.y);
+    if (w > 0.012 && h > 0.012) setRegion({ x, y, w, h }, { persist: false });
+  });
+  canvas.addEventListener("pointerup", event => {
+    if (!app.regionDrag) return;
+    app.regionDrag = null;
+    try { canvas.releasePointerCapture(event.pointerId); } catch (_) {}
+    saveSettings();
+    invalidatePlan("选区已更改");
+  });
+  canvas.addEventListener("pointercancel", () => { app.regionDrag = null; });
+}
+
+// ---------------------------------------------------------------------------
+// preview / job submission
+// ---------------------------------------------------------------------------
+function ensureReady() {
+  if (!app.imageDataUrl) { toast("先粘贴或选择一张图片", "bad"); return false; }
+  if (!app.studioOnline) {
+    toast("绘制服务未连接，正在尝试启动…", "bad");
+    discoverStudio();
+    return false;
+  }
+  return true;
+}
+
+async function createJob(mode) {
+  if (!ensureReady()) return;
+  readForm();
+  if (mode === "draw" && app.game && app.game.available === false) {
+    toast("还没有进入画布（Sketchbook 或绘画回合）", "bad");
+    return;
+  }
+  if (mode === "draw" && app.game && !app.game.canDraw && !app.settings.force) {
+    if (!confirm("游戏报告当前不可绘制（可能已提交或不在你的回合）。仍然提交吗？")) return;
+  }
+  if (mode === "draw" && app.settings.clear
+      && !confirm("绘制前会清空当前画布（所有图层）。继续吗？")) return;
+  const region = currentRegion();
+  const payload = {
+    mode,
+    image: app.imageDataUrl,
+    filename: app.imageName || "clipboard.png",
+    options: buildOptions(),
+    region,
+    clear: !!app.settings.clear,
+    plan_job: null,
+  };
+  if (mode === "draw" && app.planJob && !app.planStale) {
+    payload.plan_job = app.planJob.id;
+  }
+  setBusy(true);
+  setHint(mode === "plan" ? "正在规划…" : "正在提交绘制…", 60000);
+  try {
+    const data = await studio("/jobs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    app.activeJob = data.job;
+    app.lastJobId = data.job.id;
+    app.metrics = null;
+    app.autoTabJob = null;
+    app.planSnapshot = planKey();
+    saveSettings();
+    renderJob(data.job);
+    watchJob(data.job.id);
+    toast(mode === "plan" ? "已开始规划" : "已开始绘制", "good");
+  } catch (error) {
+    setBusy(false);
+    setHint("提交失败：" + error.message, 15000);
+    toast(error.message, "bad");
+  }
+}
+
+function setBusy(busy) {
+  app.busyFlag = !!busy;
+  updateActionHint();
+}
+
+async function watchJob(id) {
+  clearTimeout(app.timers.job);
+  const tick = async () => {
+    let job;
+    try {
+      job = await studio("/jobs/" + id);
+    } catch (error) {
+      app.timers.job = setTimeout(tick, 1500);
+      return;
+    }
+    app.activeJob = job;
+    app.lastJobId = job.id;
+    renderJob(job);
+    const running = ["queued", "planning", "drawing"].includes(job.status)
+      || (job.status === "planned" && job.mode === "draw");
+    if (running) {
+      app.timers.job = setTimeout(tick, job.status === "drawing" ? 600 : job.status === "planning" ? 400 : 800);
+    } else {
+      finishJob(job);
+    }
+  };
+  tick();
+}
+
+function renderPlanSteps(job) {
+  const box = $("#planSteps");
+  const plan = job.plan_progress;
+  const show = plan && plan.steps && plan.steps.length &&
+    (job.status === "planning" || job.status === "planned" || job.status === "failed" ||
+     (job.status === "queued" && job.mode === "plan"));
+  box.classList.toggle("hidden", !show);
+  if (!show) return;
+  const icon = { pending: "·", running: "●", done: "✓", failed: "✗", skipped: "–" };
+  box.textContent = "";
+  let runningLi = null;
+  plan.steps.forEach(step => {
+    const li = document.createElement("li");
+    li.className = step.status;
+    if (step.status === "running") runningLi = li;
+    const ico = document.createElement("span");
+    ico.className = "ico";
+    ico.textContent = icon[step.status] || "·";
+    const name = document.createElement("span");
+    name.className = "name";
+    name.textContent = step.title;
+    if (step.detail && step.status !== "pending") {
+      const small = document.createElement("small");
+      small.textContent = step.detail;
+      name.appendChild(small);
+    }
+    const time = document.createElement("span");
+    time.className = "time";
+    time.textContent = step.seconds != null ? Number(step.seconds).toFixed(1) + "s" : "";
+    li.append(ico, name, time);
+    if (step.status === "running" && step.fraction != null) {
+      const sub = document.createElement("div");
+      sub.className = "plan-sub";
+      const bar = document.createElement("i");
+      bar.style.width = (step.fraction * 100).toFixed(0) + "%";
+      sub.appendChild(bar);
+      li.appendChild(sub);
+    }
+    box.appendChild(li);
+  });
+  // Keep the active step in view inside the capped list (it is rebuilt every poll).
+  if (runningLi) box.scrollTop = Math.max(0, runningLi.offsetTop - box.clientHeight / 2);
+}
+
+function renderJob(job) {
+  const statusText = {
+    queued: "排队中", planning: "规划中", planned: "预览就绪",
+    drawing: "绘制中", done: "完成", failed: "失败",
+    cancelled: "已取消", interrupted: "已中断",
+  }[job.status] || job.status;
+  $("#jobStatus").textContent = `${statusText} · ${job.mode === "plan" ? "预览" : "绘制"}`;
+  const progress = job.progress || {};
+  const total = Number(progress.ops || job.plan_ops || 0);
+  const sent = Number(progress.sent || (job.status === "done" ? total : 0));
+  const planOnly = job.mode === "plan";
+  const planFraction = job.plan_progress && job.plan_progress.fraction != null
+    ? job.plan_progress.fraction * 100 : null;
+  const pct = planOnly
+    ? (job.status === "planned" ? 100 : job.status === "planning" ? (planFraction ?? 12) : 0)
+    : (total > 0 ? clamp(sent / total * 100, 0, 100)
+      : (job.status === "planning" ? (planFraction ?? 12) : job.status === "done" ? 100 : 0));
+  $("#progressBar").style.width = pct.toFixed(1) + "%";
+  const parts = [];
+  if (total && !planOnly) parts.push(`${sent}/${total} 笔`);
+  if (progress.phase) parts.push("阶段 " + progress.phase);
+  if (progress.elapsed != null) parts.push(`已用 ${Number(progress.elapsed).toFixed(1)}s`);
+  if (job.plan_ops) parts.push(`计划 ${job.plan_ops} 操作`);
+  if (job.status === "done" && job.result) {
+    const elapsed = Number(job.result.elapsed || 0);
+    if (elapsed) parts.push(`实际 ${elapsed.toFixed(1)}s`);
+    if (job.result.failed) parts.push(`失败 ${job.result.failed}`);
+  }
+  if (job.status === "planning") {
+    const steps = (job.plan_progress && job.plan_progress.steps) || [];
+    const running = steps.find(step => step.status === "running");
+    const index = running ? steps.indexOf(running) + 1 : 0;
+    if (running) parts.push(`步骤 ${index}/${steps.length}：${running.title}`);
+    else parts.push("读取图片 / 线稿 / 规划");
+    if (job.plan_progress && job.plan_progress.elapsed != null)
+      parts.push(`规划已用 ${Number(job.plan_progress.elapsed).toFixed(1)}s`);
+  }
+  if (job.status === "planned" && job.plan_progress && job.plan_progress.elapsed != null)
+    parts.push(`规划用时 ${Number(job.plan_progress.elapsed).toFixed(1)}s`);
+  renderPlanSteps(job);
+  $("#progressMeta").textContent = parts.join(" · ") || "—";
+  $("#jobSummary").textContent = job.error
+    ? job.error
+    : job.status === "planned"
+      ? "检查预览和指标，然后开始绘制"
+      : job.status === "drawing" ? "笔画正在写入游戏" : "—";
+  $("#log").textContent = job.log_tail || "（尚无日志）";
+  if (job.preview_url) loadPreview(job);
+  if (job.stages && job.stages.length) renderStages(job.stages);
+  else $("#stages").classList.add("hidden");
+
+  if (job.status === "planned" && job.preview_url) {
+    app.planJob = job;
+    app.planStale = planKey() !== app.planSnapshot;
+    $("#staleBadge").classList.toggle("hidden", !app.planStale);
+    if (job.mode === "plan") showTab("preview");
+    fetchMetrics(job);
+  }
+  if (job.status === "drawing" && app.autoTabJob !== job.id) {
+    app.autoTabJob = job.id;
+    showTab("canvas");
+  }
+  if (job.status === "done" && job.mode === "draw") {
+    app.planJob = job;
+    app.planStale = planKey() !== app.planSnapshot;
+    $("#staleBadge").classList.toggle("hidden", !app.planStale);
+    showTab("canvas");
+    fetchMetrics(job);
+  }
+  if (job.status === "failed" || job.status === "interrupted") {
+    $("#jobSummary").textContent = job.error || "作业失败";
+  }
+}
+
+function finishJob(job) {
+  setBusy(false);
+  if (job.status === "done") {
+    toast(job.mode === "draw" ? "绘制完成" : "预览已生成", "good");
+    setHint(job.mode === "draw" ? "绘制完成。画布会继续实时刷新。" : "预览已就绪，可以开始绘制。", 8000);
+    tickLines();
+    refreshJobs();
+  } else if (job.status === "planned") {
+    setHint("预览已就绪，可以开始绘制。", 8000);
+    refreshJobs();
+  } else if (job.status === "cancelled") {
+    toast("作业已取消");
+    setHint("作业已取消。", 5000);
+    refreshJobs();
+  } else if (job.status === "failed") {
+    toast("作业失败：" + (job.error || "未知错误"), "bad");
+    setHint("作业失败：" + (job.error || "未知错误"), 15000);
+    refreshJobs();
+  }
+}
+
+async function cancelJob() {
+  if (!app.activeJob) return;
+  try {
+    await studio("/jobs/" + app.activeJob.id + "/cancel", { method: "POST", body: "{}" });
+    toast("已请求取消");
+  } catch (error) {
+    toast("取消失败：" + error.message, "bad");
+  }
+}
+
+function loadPreview(job) {
+  if (!job.preview_url) return;
+  const url = app.studioBase + job.preview_url;
+  if (app.previewImage && app.previewImage.dataset.url === url) return;
+  const image = new Image();
+  image.crossOrigin = "anonymous";
+  app.previewUrl = url;
+  image.onload = () => {
+    if (app.previewUrl !== url) return;
+    image.dataset.url = url;
+    app.previewImage = image;
+    if (app.tab === "preview" || (app.tab === "stage" && !app.stageChoice)) {
+      scheduleStageRender();
+    }
+  };
+  image.onerror = () => toast("预览图加载失败", "bad");
+  image.src = url;
+}
+
+function renderStages(stages) {
+  const box = $("#stages");
+  box.classList.remove("hidden");
+  box.innerHTML = "";
+  stages.forEach((stage, index) => {
+    const figure = document.createElement("figure");
+    const activeName = app.stageChoice ? app.stageChoice.dataset.name : null;
+    if (activeName ? activeName === stage.name : index === stages.length - 1) {
+      figure.classList.add("active");
+    }
+    const image = document.createElement("img");
+    image.crossOrigin = "anonymous";
+    image.src = app.studioBase + stage.url;
+    image.alt = stage.name;
+    image.loading = "lazy";
+    image.dataset.name = stage.name;
+    const caption = document.createElement("figcaption");
+    caption.textContent = stage.name.replace(/^\d+-/, "");
+    figure.appendChild(image);
+    figure.appendChild(caption);
+    figure.onclick = () => {
+      app.stageChoice = image;
+      $$("#stages figure").forEach(node => node.classList.remove("active"));
+      figure.classList.add("active");
+      showTab("stage");
+    };
+    box.appendChild(figure);
+  });
+}
+
+async function fetchMetrics(job) {
+  if (!job || !job.plan_ops) return;
+  app.metricsStyle = job.options && job.options.style;
+  if (job.metrics) { app.metrics = job.metrics; renderMetrics(job.metrics); return; }
+  if (app.metricsLoading) return;
+  app.metricsLoading = true;
+  renderMetrics(null, "计算中…");
+  try {
+    const result = await studio(`/jobs/${job.id}/metrics`);
+    if (result.status === "ready") {
+      app.metrics = result.metrics;
+      renderMetrics(result.metrics);
+    } else if (result.status === "computing") {
+      app.metricsLoading = false;
+      setTimeout(() => fetchMetrics(job), 900);
+      return;
+    } else {
+      renderMetrics(null, result.error || "不可用");
+    }
+  } catch (error) {
+    renderMetrics(null, "指标不可用");
+  } finally {
+    app.metricsLoading = false;
+  }
+}
+
+function renderMetrics(metrics, note = "") {
+  const box = $("#metrics");
+  if (!metrics) {
+    box.innerHTML = `<span class="metric">${escapeHtml(note || "暂无指标")}</span>`;
+    return;
+  }
+  const coverage = metrics.subject_coverage;
+  const bleed = metrics.bleed_outside_subject;
+  if (metrics.pours != null) {
+    const leaks = metrics.predicted_leaks ?? 0;
+    box.innerHTML = [
+      ["操作", metrics.ops ?? "—", ""],
+      ["颜色", metrics.colours ?? "—", ""],
+      ["笔号（压感）", `${metrics.brush_min}–${metrics.brush_max}`, ""],
+      ["涂色笔画", metrics.fill_strokes ?? 0, ""],
+      ["倒桶", metrics.pours, ""],
+      ["预测漏色", leaks, leaks === 0 ? "good" : "warn"],
+      ["笔/分钟", metrics.strokes_per_minute ?? "—", ""],
+      ["预计", metrics.estimated_seconds != null ? metrics.estimated_seconds.toFixed(0) + "s" : "—", ""],
+    ].map(([label, value, tone]) =>
+      `<span class="metric ${tone}">${label} <strong>${value}</strong></span>`).join("");
+    return;
+  }
+  const chips = [
+    ["操作", metrics.ops ?? "—", ""],
+    ["颜色", metrics.colours ?? "—", ""],
+    ["笔号", metrics.brush_min != null ? `${metrics.brush_min}–${metrics.brush_max}` : "—", ""],
+    ["覆盖率", coverage != null ? (coverage * 100).toFixed(1) + "%" : "—",
+      coverage >= 0.85 ? "good" : "warn"],
+    ["外溢", bleed != null ? (bleed * 100).toFixed(1) + "%" : "—",
+      bleed <= 0.12 ? "good" : "warn"],
+    ["颜色误差", metrics.colour_error_painted ?? "—", ""],
+    ["弯曲比", metrics.arc_ratio_mean ?? "—", ""],
+    ["预计", metrics.estimated_seconds != null ? metrics.estimated_seconds.toFixed(0) + "s" : "—", ""],
+  ];
+  box.innerHTML = chips.map(([label, value, tone]) =>
+    `<span class="metric ${tone}">${label} <strong>${value}</strong></span>`).join("");
+  if (app.metricsStyle === "anime_study"
+      && (metrics.two_point_long || (metrics.kinds && metrics.kinds.fill))) {
+    box.innerHTML += '<span class="metric warn">警告 <strong>存在填充/长直线</strong></span>';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// jobs list / restore
+// ---------------------------------------------------------------------------
+async function refreshJobs() {
+  if (!app.studioOnline) return;
+  try {
+    const jobs = await studio("/jobs");
+    app.jobs = Array.isArray(jobs) ? jobs : [];
+    renderJobs();
+  } catch (_) { /* keep the old list */ }
+}
+
+function renderJobs() {
+  const box = $("#jobs");
+  if (!app.jobs.length) {
+    box.innerHTML = '<div class="hint">尚无作业。</div>';
+    return;
+  }
+  box.innerHTML = "";
+  app.jobs.slice(0, 30).forEach(job => {
+    const card = document.createElement("div");
+    card.className = "job" + (app.activeJob && app.activeJob.id === job.id ? " active" : "");
+    const image = document.createElement("img");
+    image.src = app.studioBase + (job.preview_url || job.image_url);
+    image.alt = "";
+    image.loading = "lazy";
+    const text = document.createElement("div");
+    text.className = "text";
+    const title = document.createElement("div");
+    title.className = "title";
+    const dot = document.createElement("i");
+    dot.className = "status-dot " + job.status;
+    const name = document.createElement("span");
+    name.textContent = (STYLE_INFO[job.options?.style] ? job.options.style : "job")
+      + " · " + (job.mode === "plan" ? "预览" : "绘制");
+    title.appendChild(dot);
+    title.appendChild(name);
+    const sub = document.createElement("div");
+    sub.className = "sub";
+    const seconds = job.options?.time || job.options?.plan_time || "";
+    sub.textContent = `${fmtAge(job.updated)} · ${job.status}${seconds ? " · " + Math.round(seconds) + "s" : ""}`;
+    text.appendChild(title);
+    text.appendChild(sub);
+    card.appendChild(image);
+    card.appendChild(text);
+    card.onclick = () => loadJob(job);
+    box.appendChild(card);
+  });
+}
+
+async function loadJob(job) {
+  try {
+    const full = await studio("/jobs/" + job.id);
+    app.activeJob = full;
+    app.lastJobId = full.id;
+    applyJobSettings(full);
+    app.suppressAutoPlan = true;
+    let imageLoaded = false;
+    if (full.image_url) {
+      try {
+        const response = await fetch(app.studioBase + full.image_url);
+        const blob = await response.blob();
+        const file = new File([blob], full.image_name || "job.png",
+          { type: blob.type || "image/png" });
+        imageLoaded = await handleImageFile(file);
+      } catch (error) {
+        toast("载入作业图片失败：" + error.message, "bad");
+      }
+    }
+    app.suppressAutoPlan = false;
+    if (full.preview_url && full.plan_ops) {
+      app.planJob = full;
+      app.planSnapshot = planKey();
+      app.planStale = false;
+      $("#staleBadge").classList.add("hidden");
+      loadPreview(full);
+      showTab("preview");
+      fetchMetrics(full);
+    } else if (!imageLoaded) {
+      // Keep the old preview if the job has nothing usable.
+    }
+    if (full.metrics) renderMetrics(full.metrics);
+    renderJob(full);
+    const running = ["queued", "planning", "drawing"].includes(full.status)
+      || (full.status === "planned" && full.mode === "draw");
+    setBusy(running);
+    if (running) watchJob(full.id);
+    refreshJobs();
+    if (!app.restoring) toast("已载入作业 " + full.id.slice(-6), "good");
+  } catch (error) {
+    app.suppressAutoPlan = false;
+    toast("载入作业失败：" + error.message, "bad");
+  }
+}
+
+function applyJobSettings(job) {
+  const options = job.options || {};
+  const s = app.settings;
+  s.style = options.style || s.style;
+  s.timeMode = options.time == null ? "auto" : "manual";
+  s.time = options.time != null ? Math.round(options.time) : 180;
+  s.colors = options.colors ?? null;
+  s.maxStrokes = options.max_strokes ?? null;
+  s.studyPause = options.study_pause ?? s.studyPause;
+  s.studySpeed = options.study_speed ?? s.studySpeed;
+  s.seed = options.seed ?? s.seed;
+  s.margin = options.margin ?? s.margin;
+  s.maxDim = options.max_dim ?? null;
+  s.lineart = options.lineart || s.lineart;
+  s.pace = options.pace || s.pace;
+  s.lineartDevice = options.lineart_device || s.lineartDevice;
+  s.force = !!options.force;
+  applyExtraOptions(options);
+  s.clear = !!job.clear;
+  if (job.region && job.region.length === 4) {
+    s.range = "region";
+    s.region = { x: job.region[0], y: job.region[1], w: job.region[2], h: job.region[3] };
+  } else {
+    s.range = "full";
+  }
+  bindForm();
+  saveSettings();
+}
+
+async function restoreLastJob() {
+  const id = app.lastJobId;
+  if (!id || !app.studioOnline) return;
+  let job;
+  try { job = await studio("/jobs/" + id); } catch (_) { return; }
+  app.restoring = true;
+  try {
+    await loadJob(job);
+    toast("已恢复上次作业", "good");
+  } finally {
+    app.restoring = false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// bridge canvas controls
+// ---------------------------------------------------------------------------
+async function canvasAction(action) {
+  try {
+    if (action === "clear" && !confirm("清空画布上的所有图层？此操作会进入游戏的撤销栈。")) return;
+    if (action === "submit" && !confirm("提交当前画布？")) return;
+    const mapping = {
+      undo: ["/api/v1/undo", "POST"],
+      redo: ["/api/v1/redo", "POST"],
+      clear: ["/api/v1/clear", "POST"],
+      submit: ["/api/v1/submit", "POST"],
+    };
+    const [path, method] = mapping[action];
+    await bridge(path, { method, body: "{}" });
+    toast({ undo: "已撤销", redo: "已重做", clear: "已清空", submit: "已提交" }[action], "good");
+    app.planStale = true;
+    $("#staleBadge").classList.remove("hidden");
+    tickLines();
+  } catch (error) {
+    toast("操作失败：" + error.message, "bad");
+  }
+}
+
+async function exportLines() {
+  try {
+    const result = await bridge("/api/v1/lines?limit=100000");
+    const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `dg-canvas-${new Date().toISOString().replace(/[:.]/g, "-")}.json`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+    toast(`已导出 ${result.lines ? result.lines.length : 0} 条笔画`);
+  } catch (error) {
+    toast("导出失败：" + error.message, "bad");
+  }
+}
+
+async function restoreLines(file) {
+  if (!file) return;
+  let data;
+  try {
+    data = JSON.parse(await file.text());
+  } catch (error) {
+    toast("不是有效的 JSON 文件", "bad");
+    return;
+  }
+  const lines = Array.isArray(data) ? data
+    : (Array.isArray(data.lines) ? data.lines
+      : (data.result && Array.isArray(data.result.lines) ? data.result.lines : null));
+  if (!lines || !lines.length) {
+    toast("文件里没有笔画数据", "bad");
+    $("#restoreInput").value = "";
+    return;
+  }
+  if (!confirm(`把 ${lines.length} 条笔画恢复到当前画布？（不会先清空）`)) {
+    $("#restoreInput").value = "";
+    return;
+  }
+  const strokes = lines.map(line => ({
+    type: line.type,
+    color: line.color,
+    size: line.size,
+    points: line.points,
+    space: "normalized",
+    layer: line.layer,
+  })).filter(line => Array.isArray(line.points) && line.points.length);
+  if (!strokes.length) {
+    toast("文件里没有可用的笔画", "bad");
+    $("#restoreInput").value = "";
+    return;
+  }
+  $("#restoreBtn").disabled = true;
+  setHint(`正在恢复 ${strokes.length} 笔…`, 600000);
+  try {
+    const result = await bridge("/api/v1/strokes", {
+      method: "POST",
+      body: JSON.stringify({ strokes, clear: false, force: true }),
+    });
+    toast(`恢复完成：${result.applied ?? strokes.length} 笔`, "good");
+    setHint("笔画已恢复。", 6000);
+    tickLines();
+  } catch (error) {
+    toast("恢复失败：" + error.message, "bad");
+    setHint("恢复失败：" + error.message, 15000);
+  } finally {
+    $("#restoreBtn").disabled = false;
+    $("#restoreInput").value = "";
+  }
+}
+
+// ---------------------------------------------------------------------------
+// tabs
+// ---------------------------------------------------------------------------
+function showTab(tab) {
+  app.tab = tab;
+  $$(".tabs button[data-tab]").forEach(button =>
+    button.classList.toggle("active", button.dataset.tab === tab));
+  renderStage();
+}
+
+// ---------------------------------------------------------------------------
+// settings dialog
+// ---------------------------------------------------------------------------
+function openSettings() {
+  $("#tokenInput").value = app.token || "";
+  $("#studioPortInput").value = app.studioPort;
+  $("#settingsDialog").showModal();
+}
+
+async function saveDialog() {
+  app.token = $("#tokenInput").value.trim();
+  app.studioPort = clamp(Number($("#studioPortInput").value) || 8770, 1024, 65535);
+  app.studioBase = `http://127.0.0.1:${app.studioPort}`;
+  saveSettings();
+  $("#settingsDialog").close();
+  toast("设置已保存", "good");
+  tickGame();
+  discoverStudio();
+}
+
+async function restartStudio() {
+  try {
+    await bridge("/api/v1/studio/stop", { method: "POST", body: "{}" });
+  } catch (_) { /* old plugin */ }
+  await delay(600);
+  const ok = await discoverStudio({ start: true, wait: 15000 });
+  toast(ok ? "绘制服务已重启" : "绘制服务仍未启动，请查看设置里的手动命令", ok ? "good" : "bad");
+}
+
+// ---------------------------------------------------------------------------
+// wiring
+// ---------------------------------------------------------------------------
+function bindEvents() {
+  $("#settingsBtn").onclick = openSettings;
+  $("#closeSettings").onclick = () => $("#settingsDialog").close();
+  $("#saveSettings").onclick = saveDialog;
+  $("#restartStudio").onclick = restartStudio;
+
+  $("#pasteBtn").onclick = () => pasteAnd("plan");
+  $("#pastePreviewBtn").onclick = () => pasteAnd("plan");
+  $("#pasteDrawBtn").onclick = () => pasteAnd("draw");
+  $("#fileBtn").onclick = () => $("#fileInput").click();
+  $("#fileInput").onchange = event => {
+    handleImageFile(event.target.files && event.target.files[0]);
+    event.target.value = "";
+  };
+  $("#clearImage").onclick = event => { event.stopPropagation(); clearImage(); };
+
+  const drop = $("#dropzone");
+  drop.addEventListener("dragover", event => {
+    event.preventDefault();
+    drop.classList.add("over");
+  });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", event => {
+    event.preventDefault();
+    drop.classList.remove("over");
+    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+      handleImageFile(event.dataTransfer.files[0]);
+    }
+  });
+  document.addEventListener("dragover", event => event.preventDefault());
+  document.addEventListener("drop", event => {
+    event.preventDefault();
+    if (event.dataTransfer.files && event.dataTransfer.files[0]) {
+      handleImageFile(event.dataTransfer.files[0]);
+    }
+  });
+  document.addEventListener("paste", event => {
+    const items = event.clipboardData && event.clipboardData.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type && item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          event.preventDefault();
+          handleImageFile(file);
+          return;
+        }
+      }
+    }
+  });
+
+  $("#style").onchange = () => { readForm(); invalidatePlan("风格已更改"); };
+  $("#timeMode").onclick = event => {
+    const button = event.target.closest("button[data-mode]");
+    if (!button) return;
+    $$("#timeMode button").forEach(node => node.classList.toggle("active", node === button));
+    $("#time").disabled = button.dataset.mode === "auto";
+    readForm();
+    invalidatePlan("时间设置已更改");
+  };
+  ["#time", "#colors", "#maxStrokes", "#seed", "#studyPause", "#studySpeed",
+   "#margin", "#maxDim", "#lineart", "#pace", "#lineartDevice", "#force",
+   ...EXTRA_FIELDS.map(field => "#" + field[1])].forEach(selector => {
+    const node = $(selector);
+    node.addEventListener("change", () => { readForm(); invalidatePlan("参数已更改"); });
+  });
+  // These two do not change the plan signature.
+  $("#clearChk").addEventListener("change", readForm);
+  $("#autoPlanChk").addEventListener("change", readForm);
+
+  $("#rangeMode").onclick = event => {
+    const button = event.target.closest("button[data-range]");
+    if (!button) return;
+    $$("#rangeMode button").forEach(node => node.classList.toggle("active", node === button));
+    $("#regionFields").classList.toggle("hidden", button.dataset.range !== "region");
+    $("#regionRow").classList.toggle("hidden", button.dataset.range !== "region");
+    readForm();
+    invalidatePlan("绘制范围已更改");
+    renderStage();
+  };
+  ["#regionX", "#regionY", "#regionW", "#regionH"].forEach(selector => {
+    $(selector).addEventListener("change", () => {
+      setRegion({
+        x: Number($("#regionX").value),
+        y: Number($("#regionY").value),
+        w: Number($("#regionW").value),
+        h: Number($("#regionH").value),
+      });
+      invalidatePlan("选区已更改");
+    });
+  });
+  $("#regionReset").onclick = () => {
+    setRegion({ x: 0.15, y: 0.15, w: 0.7, h: 0.7 });
+    invalidatePlan("选区已重置");
+  };
+
+  $("#previewBtn").onclick = () => createJob("plan");
+  $("#drawBtn").onclick = () => createJob("draw");
+  $("#cancelJobBtn").onclick = cancelJob;
+  $("#refreshGame").onclick = tickGame;
+  $("#refreshJobs").onclick = refreshJobs;
+  $("#undoBtn").onclick = () => canvasAction("undo");
+  $("#redoBtn").onclick = () => canvasAction("redo");
+  $("#clearBtn").onclick = () => canvasAction("clear");
+  $("#submitBtn").onclick = () => canvasAction("submit");
+  $("#exportBtn").onclick = exportLines;
+  $("#restoreBtn").onclick = () => $("#restoreInput").click();
+  $("#restoreInput").onchange = event => {
+    restoreLines(event.target.files && event.target.files[0]);
+  };
+
+  $$(".tabs button[data-tab]").forEach(button => {
+    button.onclick = () => showTab(button.dataset.tab);
+  });
+  $$("#presets button").forEach(button => {
+    button.onclick = () => {
+      const preset = button.dataset.preset;
+      const seconds = preset === "quick" ? 60 : preset === "fine" ? 300 : 180;
+      app.settings.timeMode = "manual";
+      app.settings.time = seconds;
+      if (preset === "quick") app.settings.colors = 4;
+      else if (preset === "fine") app.settings.colors = 8;
+      else app.settings.colors = null;
+      bindForm();
+      saveSettings();
+      invalidatePlan("预设已应用");
+    };
+  });
+
+  document.addEventListener("keydown", event => {
+    const tag = (event.target.tagName || "").toLowerCase();
+    if (["input", "textarea", "select"].includes(tag)) return;
+    if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+      event.preventDefault();
+      if (event.shiftKey) createJob("draw");
+      else createJob("plan");
+    }
+  });
+
+  const resize = new ResizeObserver(() => scheduleStageRender());
+  resize.observe($("#stageWrap"));
+  window.addEventListener("beforeunload", saveSettings);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) {
+      clearTimeout(app.timers.game);
+      clearTimeout(app.timers.lines);
+    } else {
+      tickGame();
+      tickLines();
+    }
+  });
+
+  bindStageDrag();
+}
+
+function updateActionHint() {
+  const busy = isBusyState();
+  $("#drawBtn").disabled = busy || !app.imageDataUrl;
+  $("#previewBtn").disabled = busy || !app.imageDataUrl;
+  $("#cancelJobBtn").classList.toggle("hidden", !busy);
+  $("#drawBtn").textContent = app.planJob && !app.planStale && !busy
+    ? "开始绘制（复用预览）" : "开始绘制";
+  if (busy) {
+    if (!app.hintLock || Date.now() > app.hintLock) setHint("作业进行中…");
+    return;
+  }
+  if (app.hintLock && Date.now() < app.hintLock) return;
+  if (!app.imageDataUrl) {
+    setHint("先粘贴或选择一张图片。");
+  } else if (!app.studioOnline) {
+    setHint("绘制服务未连接。会在提交时自动尝试启动。");
+  } else if (app.planJob && !app.planStale) {
+    setHint("预览已就绪；开始绘制会复用这份计划。");
+  } else if (app.planStale) {
+    setHint("参数或选区已更改；开始绘制会重新规划。");
+  } else {
+    setHint("默认保留当前画布；“清空”需要手动勾选并确认。");
+  }
+}
+
+// ---------------------------------------------------------------------------
+// boot
+// ---------------------------------------------------------------------------
+async function boot() {
+  loadSettings();
+  bindForm();
+  bindEvents();
+  renderStage();
+  updatePills();
+  tickGame();
+  tickLines();
+  const ok = await discoverStudio({ start: true, wait: 12000 });
+  if (!ok) {
+    showBanner("绘制服务（本机 Python 渲染器）没有启动。风格预览和绘制需要它；游戏状态和画布仍然可用。",
+      "重试启动", () => discoverStudio(), "studio");
+  } else {
+    hideBanner();
+    await refreshJobs();
+    await restoreLastJob();
+    setInterval(refreshJobs, 8000);
+  }
+  updateActionHint();
+}
+
+boot();
+</script>
+</body>
+</html>

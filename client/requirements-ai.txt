@@ -1,0 +1,5 @@
+# Optional: AI line art (Anime2Sketch) and character segmentation (anime-seg).
+# Without these the renderer falls back to classical edge detection and GrabCut.
+# Install with: python tools/setup.py --ai
+torch>=2.0
+onnxruntime>=1.16
