@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
 import time
 from pathlib import Path
@@ -107,7 +108,12 @@ class Reporter:
 
     def _log(self, line):
         if self.echo:
-            print(line, flush=True)
+            try:
+                print(line, flush=True)
+            except UnicodeEncodeError:
+                # a legacy console (Windows cp1252) cannot show the Chinese step titles
+                enc = getattr(sys.stdout, 'encoding', None) or 'ascii'
+                print(line.encode(enc, 'replace').decode(enc), flush=True)
 
     def _beat(self, interval):
         while not self._stop.wait(interval):

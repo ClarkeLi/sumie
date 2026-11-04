@@ -426,9 +426,9 @@ class HandExecution(unittest.TestCase):
 
     def test_a_pour_that_floods_far_more_than_planned_is_undone(self):
         bridge, result, _ = self.run_plan(6.0)
-        self.assertEqual(bridge.undone, 1)
-        self.assertEqual(result['leaked_fills'], 1)
-        self.assertEqual(result['real_fills'], 0)
+        self.assertEqual(bridge.undone, 1, result)
+        self.assertEqual(result['leaked_fills'], 1, result)
+        self.assertEqual(result['real_fills'], 0, result)
 
     def native_plan(self):
         ops = []

@@ -1739,6 +1739,11 @@ def build_parser():
 
 def main(argv=None):
     args = None
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")   # Windows consoles default to cp1252
+        except (AttributeError, ValueError, OSError):
+            pass
     try:
         return _main(argv)
     except SystemExit:

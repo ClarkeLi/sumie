@@ -747,6 +747,8 @@ class Studio:
             log.flush()
             env = dict(os.environ)
             env["PYTHONUNBUFFERED"] = "1"
+            env["PYTHONIOENCODING"] = "utf-8"     # the renderer prints Chinese step titles; Windows defaults to cp1252
+            env["PYTHONUTF8"] = "1"
             process = subprocess.Popen(argv, cwd=str(self.repo), stdout=log,
                                        stderr=subprocess.STDOUT, env=env)
             job.process = process
