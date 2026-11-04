@@ -127,6 +127,8 @@ def plug_leak(blocked, seed, box, pad=24):
     sx, sy = int(seed[0]) - x0, int(seed[1]) - y0
     if not (0 <= sx < w and 0 <= sy < h) or not free[sy, sx]:
         return None
+    if free.all():
+        return None                     # no wall anywhere near: nothing to plug (and no distances to measure)
     wide = cv2.distanceTransform(free.astype(np.uint8), cv2.DIST_L2, 3)
     cost = 1.0 / (wide + 0.3)
     best = np.full((h, w), np.inf)
@@ -156,7 +158,7 @@ def plug_leak(blocked, seed, box, pad=24):
         route.append(parent[route[-1]])
     neck = min(route, key=lambda p: wide[p[1], p[0]])
     px, py = neck
-    reach = int(wide[py, px]) + 8
+    reach = int(min(float(wide[py, px]), float(max(h, w)))) + 8
     ya, yb = max(0, py - reach), min(h, py + reach + 1)
     xa, xb = max(0, px - reach), min(w, px + reach + 1)
     wy, wx = np.nonzero(~free[ya:yb, xa:xb])
