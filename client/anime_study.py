@@ -1455,8 +1455,9 @@ def execute_study(client, ops, budget, args):
                 failed_now = int(result.get('failed', 0))
                 applied += int(applied_now > 0)
                 failed += int(bool(failed_now) or applied_now == 0)
-        except Exception:
+        except Exception as error:
             failed += 1
+            stats.last_error = f'{type(error).__name__}: {error}'
         sent += 1
         index += 1
         write_progress(progress_path, status='running', sent=sent, ops=total,
@@ -1489,6 +1490,7 @@ def finish_study(progress_path, total, sent, applied, failed, start, fills=None)
               'repairs': fills.repairs if fills else 0,
               'retries': fills.retries if fills else 0,
               'pen_failures': fills.pen_failures[:5] if fills else [],
+              'last_error': getattr(fills, 'last_error', '') if fills else '',
               'pen_size_error': fills.pen_size_error if fills else 0,
               'pour_log': [[round(e or 0, 4), round(a or 0, 4)] + list(r) for e, a, *r in fills.log] if fills else [],
               'elapsed': round(time.monotonic() - start, 2)}
